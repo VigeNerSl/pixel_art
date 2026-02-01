@@ -1,0 +1,3447 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pixel Art Pro | VigeNerSl</title>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, runTransaction, onValue, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC7kKg6LbtJ51sw9US2AyRmkI_NwDmE28Q",
+  authDomain: "project-vigenersl.firebaseapp.com",
+  databaseURL: "https://project-vigenersl-default-rtdb.firebaseio.com",
+  projectId: "project-vigenersl",
+  storageBucket: "project-vigenersl.firebasestorage.app",
+  messagingSenderId: "710338575654",
+  appId: "1:710338575654:web:e7ba2076dc5bd160da55e7"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+window.trackButtonUsage = async function(buttonName) {
+  try {
+    const buttonRef = ref(db, 'stats/buttons/' + buttonName);
+    await runTransaction(buttonRef, (current) => {
+      return (current || 0) + 1;
+    });
+  } catch (e) {
+    console.error('Firebase error:', e);
+  }
+};
+
+window.incrementVisitCounter = async function() {
+  try {
+    const visitsRef = ref(db, 'stats/total_visits');
+    await runTransaction(visitsRef, (current) => {
+      return (current || 0) + 1;
+    });
+  } catch (e) {
+    console.error('Visit counter error:', e);
+  }
+};
+
+window.setupOnlinePresence = function() {
+  const userId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+  const presenceRef = ref(db, 'presence/' + userId);
+  const connectedRef = ref(db, '.info/connected');
+  
+  onValue(connectedRef, (snap) => {
+    if (snap.val() === true) {
+      set(presenceRef, { timestamp: Date.now() });
+      onDisconnect(presenceRef).remove();
+    }
+  });
+  
+  const presenceListRef = ref(db, 'presence');
+  onValue(presenceListRef, (snapshot) => {
+    const data = snapshot.val() || {};
+    const count = Object.keys(data).length;
+    const el = document.getElementById('onlineCount');
+    if (el) el.textContent = count;
+  });
+};
+
+window.loadStats = function() {
+  const statsRef = ref(db, 'stats/buttons');
+  onValue(statsRef, (snapshot) => {
+    const data = snapshot.val() || {};
+    const statsContainer = document.getElementById('firebaseStats');
+    if (!statsContainer) return;
+    
+    let html = '';
+    
+    html += '<div style="margin-top:15px;padding-top:15px;border-top:1px solid #444;">';
+    html += '<h4 style="margin-bottom:12px;color:#5865F2;font-size:14px;">' + t('usageStats') + '</h4>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">';
+    
+    const buttons = {
+      'pencil': t('pencil'),
+      'eraser': t('eraser'),
+      'bucket': t('bucket'),
+      'eyedropper': t('eyedropper'),
+      'line': t('line'),
+      'rectangle': t('rectangle'),
+      'circle': t('circle'),
+      'spray': t('spray'),
+      'select': t('select'),
+      'mirror': t('mirror'),
+      'undo': t('undo'),
+      'redo': t('redo'),
+      'save': t('save'),
+      'open_image': t('openImage'),
+      'unicode_grid': t('unicodeGrid'),
+      'new_canvas': t('newCanvas'),
+      'center_view': t('centerView'),
+      'hsl_editor': t('hslEditor'),
+      'brush_square': t('brushSquare'),
+      'brush_circle': t('brushCircle'),
+      'brush_diamond': t('brushDiamond')
+    };
+    
+    html += `<div style="display:flex;justify-content:space-between;background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;">
+      <span style="color:#aaa;">${t('totalVisits')}</span>
+      <span id="visitsCount" style="color:#fff;font-weight:600;">...</span>
+    </div>`;
+    
+    for (const [key, label] of Object.entries(buttons)) {
+      const count = data[key] || 0;
+      html += `<div style="display:flex;justify-content:space-between;background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;">
+        <span style="color:#aaa;">${label}</span>
+        <span style="color:#fff;font-weight:600;">${count}</span>
+      </div>`;
+    }
+    html += '</div></div>';
+    
+    html += `<div style="margin-top:20px;padding-top:15px;border-top:1px solid #444;text-align:center;">
+      <div style="color:#666;font-size:11px;margin-bottom:8px;">© 2025 - 2026 VigeNerSl</div>
+      <div style="display:flex;justify-content:center;gap:15px;margin-bottom:8px;">
+        <a href="https://t.me/VigeNerSl" target="_blank" style="color:#5865F2;text-decoration:none;font-size:12px;display:flex;align-items:center;gap:4px;">
+          <i data-lucide="send" style="width:14px;height:14px;"></i> Telegram
+        </a>
+        <a href="https://github.com/VigeNerSl" target="_blank" style="color:#5865F2;text-decoration:none;font-size:12px;display:flex;align-items:center;gap:4px;">
+          <i data-lucide="github" style="width:14px;height:14px;"></i> GitHub
+        </a>
+      </div>
+      <div style="color:#444;font-size:10px;">Version 1.0</div>
+    </div>`;
+    
+    statsContainer.innerHTML = html;
+    lucide.createIcons();
+    
+    const visitsRef = ref(db, 'stats/total_visits');
+    onValue(visitsRef, (visitsSnapshot) => {
+      const visits = visitsSnapshot.val() || 0;
+      const el = document.getElementById('visitsCount');
+      if (el) el.textContent = visits.toLocaleString();
+    });
+  });
+};
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadStats();
+  incrementVisitCounter();
+  setupOnlinePresence();
+});
+</script>
+<style>
+:root {
+  --bg-color: #0a0a0f;
+  --panel-color: #202024;
+  --accent-color: #5865F2;
+  --text-color: #e1e1e6;
+  --drawer-bg: rgba(32, 32, 36, 0.98);
+  --neon-color: #5865F2;
+  --neon-secondary: #00d4aa;
+  --neon-tertiary: #e94560;
+  --neon-quaternary: #ff9f43;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.bg-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+}
+
+.floating-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.4;
+  animation: float 20s infinite ease-in-out;
+}
+
+.orb-1 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(88, 101, 242, 0.4) 0%, transparent 70%);
+  top: 10%;
+  left: -5%;
+}
+
+.orb-2 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(233, 69, 96, 0.3) 0%, transparent 70%);
+  top: 60%;
+  right: -10%;
+  animation-delay: -5s;
+}
+
+.orb-3 {
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(0, 212, 170, 0.3) 0%, transparent 70%);
+  bottom: 20%;
+  left: 30%;
+  animation-delay: -10s;
+  animation-duration: 25s;
+}
+
+.orb-4 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255, 159, 67, 0.25) 0%, transparent 70%);
+  top: 30%;
+  right: 20%;
+  animation-delay: -15s;
+  animation-duration: 18s;
+}
+
+.orb-5 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(156, 39, 176, 0.2) 0%, transparent 70%);
+  bottom: -5%;
+  left: -5%;
+  animation-delay: -7s;
+  animation-duration: 22s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: particle-float 15s infinite linear;
+}
+
+@keyframes particle-float {
+  0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-100px) translateX(100px); opacity: 0; }
+}
+
+button {
+  border: none;
+  outline: none;
+  cursor: pointer;
+  background: var(--panel-color);
+  color: var(--text-color);
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, background 0.2s;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+.top-bar {
+  height: 50px;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(32, 32, 36, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 50;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-title {
+  font-size: 16px;
+  font-weight: bold;
+  background: linear-gradient(90deg, #fff, #5865F2, #fff, #5865F2);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 3s ease infinite;
+  text-shadow: 0 0 20px rgba(88, 101, 242, 0.5);
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.menu-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  background: transparent;
+}
+
+.save-unicode-btn {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+  display: none;
+}
+
+.save-unicode-btn.visible {
+  display: flex;
+}
+
+.zoom-indicator {
+  position: fixed;
+  top: 60px;
+  left: 15px;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.zoom-indicator.visible {
+  opacity: 1;
+}
+
+.workspace {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  background-image: repeating-conic-gradient(#1a1a1a 0% 25%, #222 0% 50%);
+  background-size: 20px 20px;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.canvas-container::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--neon-color), var(--neon-secondary), var(--neon-tertiary), var(--neon-quaternary), var(--neon-color));
+  background-size: 400% 100%;
+  z-index: -1;
+  animation: neon-flow 8s linear infinite;
+  filter: blur(8px);
+  opacity: 0.8;
+}
+
+@keyframes neon-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 400% 50%; }
+}
+
+canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--drawer-bg);
+  backdrop-filter: blur(20px);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transition: height 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+  height: 200px;
+  overflow: hidden;
+  will-change: height;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawer.full-open {
+  border-radius: 0;
+}
+
+.drag-handle-area {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.drag-handle-pill {
+  width: 40px;
+  height: 5px;
+  background: linear-gradient(90deg, #444, #666, #444);
+  border-radius: 10px;
+  transition: width 0.3s;
+}
+
+.drawer.open .drag-handle-pill,
+.drawer.full-open .drag-handle-pill {
+  width: 60px;
+  background: linear-gradient(90deg, #5865F2, #8b92f7, #5865F2);
+}
+
+.hotbar-content {
+  padding: 5px 15px 15px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.tools-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tool-btn {
+  flex: 1;
+  height: 48px;
+  background: rgba(43, 43, 48, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s;
+  position: relative;
+}
+
+.tool-btn.active {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 0 15px rgba(88, 101, 242, 0.5);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.tool-btn i {
+  stroke-width: 2.5;
+}
+
+.controls-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.color-preview-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+}
+
+.current-color-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.hsl-editor-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2b2b30, #3a3a40);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hsl-editor-btn:active {
+  background: linear-gradient(135deg, #3a3a40, #4a4a50);
+}
+
+.hex-input {
+  background: rgba(18, 18, 20, 0.8);
+  border: 1px solid #333;
+  color: #fff;
+  height: 44px;
+  border-radius: 8px;
+  width: 80px;
+  font-family: monospace;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+
+.center-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(88, 101, 242, 0.9), rgba(118, 130, 253, 0.9));
+  color: white;
+  box-shadow: 0 4px 15px rgba(88, 101, 242, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.drawer-expanded-content {
+  padding: 0 15px 20px 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  flex: 1;
+}
+
+.drawer.open .drawer-expanded-content,
+.drawer.full-open .drawer-expanded-content {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sliders-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slider-label {
+  font-size: 12px;
+  color: #aaa;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 500;
+}
+
+input[type=range] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #333;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fff, #e0e0e0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  border: 2px solid var(--accent-color);
+}
+
+.brush-types {
+  display: flex;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.brush-type-btn {
+  flex: 1;
+  height: 40px;
+  background: rgba(43, 43, 48, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brush-type-btn.active {
+  background: var(--accent-color);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(88, 101, 242, 0.4);
+}
+
+.brush-preview {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+}
+
+.brush-preview.square {
+  border-radius: 2px;
+}
+
+.brush-preview.circle {
+  border-radius: 50%;
+}
+
+.brush-preview.diamond {
+  transform: rotate(45deg) scale(0.8);
+  border-radius: 2px;
+}
+
+.big-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 6px;
+  padding-bottom: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.palette-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.palette-cell:active {
+  transform: scale(0.95);
+}
+
+.palette-section-title {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  grid-column: 1/-1;
+}
+
+.hsl-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 500;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.hsl-modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.hsl-modal-content {
+  background: linear-gradient(145deg, #1e1e24, #25252c);
+  padding: 25px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hsl-modal.open .hsl-modal-content {
+  transform: scale(1);
+}
+
+.hsl-preview {
+  width: 100%;
+  height: 80px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.hsl-slider-group {
+  margin-bottom: 15px;
+}
+
+.hsl-slider-group .slider-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.hsl-slider-group input[type=range] {
+  height: 8px;
+  border-radius: 4px;
+}
+
+#hsl-h {
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+
+#hsl-s {
+  background: linear-gradient(to right, #808080, currentColor);
+}
+
+#hsl-l {
+  background: linear-gradient(to right, #000, currentColor, #fff);
+}
+
+.hsl-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.hsl-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.hsl-btn-primary {
+  background: linear-gradient(135deg, var(--accent-color), #4752c4);
+  color: white;
+}
+
+.hsl-btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 200;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+}
+
+.modal.open {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--panel-color);
+  padding: 20px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 350px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.full-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: #333;
+  text-align: left;
+  padding-left: 20px;
+  border-radius: 8px;
+}
+
+.toast {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  padding: 10px 20px;
+  border-radius: 25px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 300;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+}
+
+.unicode-size-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 550;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.unicode-size-modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.unicode-size-content {
+  background: linear-gradient(145deg, #1e1e24, #25252c);
+  padding: 30px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.unicode-size-modal.open .unicode-size-content {
+  transform: scale(1);
+}
+
+.unicode-size-title {
+  text-align: center;
+  margin-bottom: 25px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.unicode-size-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.unicode-size-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  background: linear-gradient(135deg, var(--accent-color), #4752c4);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.unicode-size-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.unicode-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 600;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.unicode-modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.unicode-modal-content {
+  background: linear-gradient(145deg, #1e1e24, #25252c);
+  border-radius: 20px;
+  width: 95%;
+  max-width: 600px;
+  max-height: 90vh;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.unicode-modal.open .unicode-modal-content {
+  transform: scale(1);
+}
+
+.unicode-header {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.unicode-header h3 {
+  font-size: 18px;
+}
+
+.unicode-body {
+  padding: 20px;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.unicode-grid-container {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 300px;
+  background: #000;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.unicode-grid-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  transform-origin: 0 0;
+}
+
+.unicode-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.unicode-action-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.unicode-back-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.unicode-download-btn {
+  background: linear-gradient(135deg, var(--accent-color), #4752c4);
+  color: white;
+}
+
+.cell-action-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 700;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.cell-action-modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.cell-action-content {
+  background: linear-gradient(145deg, #1e1e24, #25252c);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding: 25px;
+}
+
+.cell-action-modal.open .cell-action-content {
+  transform: scale(1);
+}
+
+.cell-info {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.cell-info h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.cell-info p {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.cell-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cell-action-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.cell-edit-btn {
+  background: linear-gradient(135deg, var(--accent-color), #4752c4);
+  color: white;
+}
+
+.cell-copy-btn {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4CAF50;
+  border: 1px solid #4CAF50;
+}
+
+.cell-cancel-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ccc;
+}
+
+.mirror-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 550;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.mirror-modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.mirror-modal-content {
+  background: linear-gradient(145deg, #1e1e24, #25252c);
+  padding: 25px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 320px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.mirror-modal.open .mirror-modal-content {
+  transform: scale(1);
+}
+
+.mirror-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.mirror-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mirror-option-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  transition: all 0.2s;
+}
+
+.mirror-option-btn.active {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 0 15px rgba(88, 101, 242, 0.4);
+}
+
+.mirror-cancel-btn {
+  margin-top: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #888;
+}
+
+.tooltip {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  max-width: 200px;
+  text-align: center;
+}
+
+.tooltip.visible {
+  opacity: 1;
+}
+
+.top-bar button {
+  width: 44px;
+  height: 44px;
+}
+
+.online-indicator {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+  background: rgba(0,0,0,0.3);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.import-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 650;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.import-modal.open {
+  display: flex;
+  opacity: 1;
+}
+
+.import-modal-content {
+  background: linear-gradient(145deg, #1e1e24, #25252c);
+  padding: 25px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.import-modal.open .import-modal-content {
+  transform: scale(1);
+}
+
+.import-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.import-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--accent-color), #4752c4);
+  color: white;
+}
+
+.import-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+</style>
+</head>
+<body>
+<div class="bg-animation">
+  <div class="floating-orb orb-1"></div>
+  <div class="floating-orb orb-2"></div>
+  <div class="floating-orb orb-3"></div>
+  <div class="floating-orb orb-4"></div>
+  <div class="floating-orb orb-5"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="mirror-modal" id="mirrorModal" onclick="if(event.target===this)closeMirrorModal()">
+  <div class="mirror-modal-content">
+    <div class="mirror-title" id="mirrorTitle">Отзеркаливание</div>
+    <div class="mirror-options">
+      <button class="mirror-option-btn" id="mirrorHBtn" onclick="setMirrorMode('horizontal')">
+        <i data-lucide="flip-horizontal" style="width:18px;height:18px"></i>
+        <span id="mirrorHText">Горизонтально</span>
+      </button>
+      <button class="mirror-option-btn" id="mirrorVBtn" onclick="setMirrorMode('vertical')">
+        <i data-lucide="flip-vertical" style="width:18px;height:18px"></i>
+        <span id="mirrorVText">Вертикально</span>
+      </button>
+      <button class="mirror-option-btn" id="mirrorOffBtn" onclick="setMirrorMode('off')">
+        <i data-lucide="x" style="width:18px;height:18px"></i>
+        <span id="mirrorOffText">Выключено</span>
+      </button>
+      <button class="mirror-option-btn mirror-cancel-btn" onclick="closeMirrorModal()" id="mirrorBackText">Назад</button>
+    </div>
+  </div>
+</div>
+
+<div class="unicode-size-modal" id="unicodeSizeModal" onclick="if(event.target===this)closeUnicodeSizeModal()">
+  <div class="unicode-size-content">
+    <div class="unicode-size-title" id="unicodeSizeTitle">Выберите размер сетки</div>
+    <div class="unicode-size-buttons">
+      <button class="unicode-size-btn" onclick="openUnicodeWithSize(256); trackButtonUsage('unicode_grid')">
+        <i data-lucide="grid-3x3" style="width:20px;height:20px"></i>
+        256 x 256 (16x16)
+      </button>
+      <button class="unicode-size-btn" onclick="openUnicodeWithSize(512); trackButtonUsage('unicode_grid')">
+        <i data-lucide="grid" style="width:20px;height:20px"></i>
+        512 x 512 (32x32)
+      </button>
+      <button class="unicode-size-btn secondary" onclick="closeUnicodeSizeModal()" id="unicodeCancelText">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="import-modal" id="importModal" onclick="if(event.target===this)closeImportModal()">
+  <div class="import-modal-content">
+    <div class="import-title" id="importTitle">Импорт изображения</div>
+    <div class="import-buttons">
+      <button class="import-btn" onclick="processImageImport('fit')">
+        <i data-lucide="shrink" style="width:20px;height:20px"></i>
+        <span id="importFitText">Изменить размер изображения под холст</span>
+      </button>
+      <button class="import-btn" onclick="processImageImport('resize')">
+        <i data-lucide="expand" style="width:20px;height:20px"></i>
+        <span id="importResizeText">Изменить холст под изображение</span>
+      </button>
+      <button class="import-btn secondary" onclick="closeImportModal()" id="importCancelText">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="cell-action-modal" id="cellActionModal">
+  <div class="cell-action-content">
+    <div class="cell-info">
+      <h3 id="cellTitle">Ячейка E000</h3>
+      <p id="cellCoords">Координаты: 0, 0</p>
+    </div>
+    <div class="cell-action-buttons">
+      <button class="cell-action-btn cell-edit-btn" onclick="editSelectedCell()">
+        <i data-lucide="edit-3" style="width:18px;height:18px"></i>
+        <span id="editCellText">Редактировать</span>
+      </button>
+      <button class="cell-action-btn cell-copy-btn" onclick="copySelectedCellSymbol()">
+        <i data-lucide="copy" style="width:18px;height:18px"></i>
+        <span id="copyCellText">Копировать символ</span>
+      </button>
+      <button class="cell-action-btn cell-cancel-btn" onclick="closeCellActionModal()" id="cellBackText">Назад</button>
+    </div>
+  </div>
+</div>
+
+<div class="unicode-modal" id="unicodeModal">
+  <div class="unicode-modal-content">
+    <div class="unicode-header">
+      <h3 id="unicodeHeaderTitle">Unicode Glyph Grid</h3>
+      <button class="unicode-action-btn unicode-back-btn" onclick="closeUnicodeModal()" style="flex:0 0 auto;width:auto;padding:8px 16px" id="unicodeCloseText">Закрыть</button>
+    </div>
+    <div class="unicode-body">
+      <div class="unicode-grid-container" id="unicodeGridContainer">
+        <canvas class="unicode-grid-canvas" id="unicodeGridCanvas"></canvas>
+      </div>
+      <div class="unicode-actions">
+        <button class="unicode-action-btn" onclick="requestUnicodeImport()" style="background:rgba(255,255,255,0.1);color:#ccc">
+          <span id="unicodeImportText">Импорт фото</span>
+        </button>
+        <button class="unicode-action-btn unicode-download-btn" onclick="downloadUnicodeGlyph(); trackButtonUsage('save')">
+          <span id="unicodeDownloadText">Скачать PNG</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="unicodeImportInput" hidden accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/bmp" onchange="handleUnicodeImageImport(event)">
+
+<div class="hsl-modal" id="hslModal" onclick="if(event.target===this)closeHSLModal()">
+  <div class="hsl-modal-content">
+    <h3 style="margin-bottom:15px;text-align:center;font-size:18px" id="hslTitle">Редактор цвета (HSL)</h3>
+    <div class="hsl-preview" id="hslPreview"></div>
+    <div class="hsl-slider-group">
+      <div class="slider-label"><span id="hslHText">Оттенок (H)</span><span id="hsl-h-val">0°</span></div>
+      <input type="range" id="hsl-h" min="0" max="360" value="0">
+    </div>
+    <div class="hsl-slider-group">
+      <div class="slider-label"><span id="hslSText">Насыщенность (S)</span><span id="hsl-s-val">100%</span></div>
+      <input type="range" id="hsl-s" min="0" max="100" value="100">
+    </div>
+    <div class="hsl-slider-group">
+      <div class="slider-label"><span id="hslLText">Светлота (L)</span><span id="hsl-l-val">50%</span></div>
+      <input type="range" id="hsl-l" min="0" max="100" value="50">
+    </div>
+    <div class="hsl-buttons">
+      <button class="hsl-btn hsl-btn-secondary" onclick="closeHSLModal()" id="hslCancelText">Отмена</button>
+      <button class="hsl-btn hsl-btn-primary" onclick="applyHSLColor(); trackButtonUsage('hsl_editor')" id="hslApplyText">Применить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="menuModal" onclick="if(event.target===this)toggleMenu()">
+  <div class="modal-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+      <h3 id="settingsTitle">Настройки</h3>
+      <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);">
+        <i data-lucide="users" style="width:16px;height:16px;color:#4CAF50"></i>
+        <span id="onlineCount" style="font-size:13px;color:#4CAF50;font-weight:600">0</span>
+      </div>
+    </div>
+    
+    <div style="margin:10px 0;display:flex;gap:10px">
+      <input type="number" id="wInput" value="16" style="width:50%;padding:10px;border-radius:6px;border:none;background:#2a2a30;color:#fff" placeholder="Ш">
+      <input type="number" id="hInput" value="16" style="width:50%;padding:10px;border-radius:6px;border:none;background:#2a2a30;color:#fff" placeholder="В">
+    </div>
+    
+    <button class="full-btn" onclick="openImageImportSelector(); trackButtonUsage('open_image')">
+      <span style="display:flex;align-items:center;gap:8px">
+        <i data-lucide="folder-open" style="width:16px"></i> <span id="openImageText">Открыть фото</span>
+      </span>
+    </button>
+    <button class="full-btn" onclick="openUnicodeSizeSelector()">
+      <span style="display:flex;align-items:center;gap:8px">
+        <i data-lucide="grid-3x3" style="width:16px"></i> Unicode Grid
+      </span>
+    </button>
+    <button class="full-btn" onclick="saveImage(); trackButtonUsage('save')">
+      <span style="display:flex;align-items:center;gap:8px">
+        <i data-lucide="download" style="width:16px"></i> <span id="saveText">Сохранить PNG</span>
+      </span>
+    </button>
+    <button class="full-btn" style="background:#e63946" onclick="createNewCanvas(); trackButtonUsage('new_canvas')">
+      <span style="display:flex;align-items:center;gap:8px">
+        <i data-lucide="sparkles" style="width:16px"></i> <span id="newCanvasText">Новый холст</span>
+      </span>
+    </button>
+    
+    <div id="firebaseStats" style="margin-top:15px;"></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" hidden accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/bmp, image/svg+xml" onchange="handleFileSelect(event)">
+
+<div id="toast" class="toast">Info</div>
+<div id="zoomIndicator" class="zoom-indicator">1.0x</div>
+
+<div class="top-bar">
+  <div style="display:flex;gap:10px;align-items:center">
+    <span class="app-title">Pixel Art Pro | VigeNerSl</span>
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="save-unicode-btn" id="saveUnicodeBtn" onclick="saveUnicodeCell(); trackButtonUsage('save')" data-tooltip="Сохранить в Unicode">
+      <i data-lucide="check" style="width:20px;height:20px"></i>
+    </button>
+    <button onclick="undo(); trackButtonUsage('undo')" data-tooltip="Отменить (Undo)">
+      <i data-lucide="undo-2" style="width:22px;height:22px"></i>
+    </button>
+    <button onclick="redo(); trackButtonUsage('redo')" data-tooltip="Вернуть (Redo)">
+      <i data-lucide="redo-2" style="width:22px;height:22px"></i>
+    </button>
+    <button class="menu-btn" onclick="toggleMenu(); trackButtonUsage('menu')" data-tooltip="Меню">
+      <i data-lucide="menu" style="width:24px;height:24px"></i>
+    </button>
+  </div>
+</div>
+
+<div class="workspace" id="workspace">
+  <div class="canvas-container" id="canvasContainer">
+    <canvas id="pixelCanvas"></canvas>
+  </div>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="drag-handle-area" id="dragHandle">
+    <div class="drag-handle-pill"></div>
+  </div>
+  <div class="hotbar-content">
+    <div class="tools-row">
+      <button class="tool-btn active" onclick="setTool('pencil'); trackButtonUsage('pencil')" data-tooltip="Карандаш (P)">
+        <i data-lucide="pencil" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('eraser'); trackButtonUsage('eraser')" data-tooltip="Ластик (E)">
+        <i data-lucide="eraser" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('bucket'); trackButtonUsage('bucket')" data-tooltip="Заливка (F)">
+        <i data-lucide="paint-bucket" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('eyedropper'); trackButtonUsage('eyedropper')" data-tooltip="Пипетка (I)">
+        <i data-lucide="pipette" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('line'); trackButtonUsage('line')" data-tooltip="Линия (L)">
+        <i data-lucide="minus" style="width:20px;height:20px"></i>
+      </button>
+    </div>
+    <div class="tools-row" style="margin-top:8px">
+      <button class="tool-btn" onclick="setTool('rectangle'); trackButtonUsage('rectangle')" data-tooltip="Прямоугольник (R)">
+        <i data-lucide="square" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('circle'); trackButtonUsage('circle')" data-tooltip="Круг (C)">
+        <i data-lucide="circle" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('spray'); trackButtonUsage('spray')" data-tooltip="Спрей (S)">
+        <i data-lucide="spray-can" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="setTool('select'); trackButtonUsage('select')" data-tooltip="Выделить (M)">
+        <i data-lucide="move" style="width:20px;height:20px"></i>
+      </button>
+      <button class="tool-btn" onclick="openMirrorModal(); trackButtonUsage('mirror')" data-tooltip="Зеркало" id="mirrorBtn">
+        <i data-lucide="flip-horizontal" style="width:20px;height:20px"></i>
+      </button>
+    </div>
+    <div class="controls-row">
+      <div class="color-preview-row">
+        <div class="current-color-box" id="colorBox" style="background:#000" data-tooltip="Текущий цвет"></div>
+        <button class="hsl-editor-btn" onclick="openHSLModal()" data-tooltip="HSL Редактор">
+          <i data-lucide="sliders-horizontal" style="width:20px;height:20px"></i>
+        </button>
+        <input type="text" id="hexInput" value="#000000" class="hex-input" data-tooltip="HEX код цвета">
+      </div>
+      <button class="center-btn" id="centerBtn" onclick="resetView(); trackButtonUsage('center_view')" data-tooltip="Центрировать вид">
+        <i data-lucide="crosshair" style="width:20px;height:20px"></i>
+      </button>
+    </div>
+  </div>
+  <div class="drawer-expanded-content">
+    <div class="slider-group">
+      <div class="slider-label"><span id="brushSizeText">Размер кисти</span> <span id="brushSizeVal">1px</span></div>
+      <input type="range" id="brushSizeSlider" min="1" max="50" value="1">
+    </div>
+    <div style="margin-top:5px">
+      <div class="slider-label" style="margin-bottom:8px"><span id="brushShapeText">Форма кисти</span></div>
+      <div class="brush-types">
+        <button class="brush-type-btn active" onclick="setBrushType('square'); trackButtonUsage('brush_square')" data-tooltip="Квадратная кисть">
+          <div class="brush-preview square" style="color:#fff"></div>
+        </button>
+        <button class="brush-type-btn" onclick="setBrushType('circle'); trackButtonUsage('brush_circle')" data-tooltip="Круглая кисть">
+          <div class="brush-preview circle" style="color:#fff"></div>
+        </button>
+        <button class="brush-type-btn" onclick="setBrushType('diamond'); trackButtonUsage('brush_diamond')" data-tooltip="Ромбовидная кисть">
+          <div class="brush-preview diamond" style="color:#fff"></div>
+        </button>
+      </div>
+    </div>
+    <hr style="border:0;border-top:1px solid #333;margin:5px 0">
+    <div class="sliders-container">
+      <div class="slider-group">
+        <div class="slider-label"><span id="opacityText">Прозрачность кисти</span> <span id="opacityVal">100%</span></div>
+        <input type="range" id="opacitySlider" min="1" max="100" value="100">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span id="blendText">Сила смешивания</span> <span id="blendVal">100%</span></div>
+        <input type="range" id="blendSlider" min="10" max="100" value="100">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span id="brightnessText">Яркость</span> <span id="brightVal">50%</span></div>
+        <input type="range" id="brightnessSlider" min="0" max="100" value="50">
+      </div>
+    </div>
+    <hr style="border:0;border-top:1px solid #333;margin:5px 0">
+    <div class="big-palette" id="bigPalette"></div>
+  </div>
+</div>
+<script>
+const MAX_UNDO_SIZE = 20;
+const MAX_FLOOD_FILL_PIXELS = 50000;
+const BATCH_RENDER_SIZE = 100;
+
+const userLang = navigator.language || navigator.userLanguage;
+const currentLang = userLang.startsWith('ru') ? 'ru' : 'en';
+
+const translations = {
+  ru: {
+    appTitle: 'Pixel Art Pro',
+    pencil: 'Карандаш',
+    eraser: 'Ластик',
+    bucket: 'Заливка',
+    eyedropper: 'Пипетка',
+    line: 'Линия',
+    rectangle: 'Прямоугольник',
+    circle: 'Круг',
+    spray: 'Спрей',
+    select: 'Выделение',
+    mirror: 'Зеркало',
+    undo: 'Отмена',
+    redo: 'Вернуть',
+    save: 'Сохранить PNG',
+    openImage: 'Открыть фото',
+    unicodeGrid: 'Unicode Grid',
+    newCanvas: 'Новый холст',
+    centerView: 'Центрировать',
+    hslEditor: 'HSL Редактор',
+    brushSquare: 'Кисть квадрат',
+    brushCircle: 'Кисть круг',
+    brushDiamond: 'Кисть ромб',
+    totalVisits: 'Всего посещений',
+    usageStats: 'Статистика использования',
+    settings: 'Настройки',
+    mirrorTitle: 'Отзеркаливание',
+    mirrorH: 'Горизонтально',
+    mirrorV: 'Вертикально',
+    mirrorOff: 'Выключено',
+    back: 'Назад',
+    gridSizeTitle: 'Выберите размер сетки',
+    cancel: 'Отмена',
+    importTitle: 'Импорт изображения',
+    importFit: 'Изменить размер изображения под холст',
+    importResize: 'Изменить холст под изображение',
+    editCell: 'Редактировать',
+    copyCell: 'Копировать символ',
+    hslTitle: 'Редактор цвета (HSL)',
+    hue: 'Оттенок (H)',
+    saturation: 'Насыщенность (S)',
+    lightness: 'Светлота (L)',
+    apply: 'Применить',
+    brushSize: 'Размер кисти',
+    brushShape: 'Форма кисти',
+    opacity: 'Прозрачность кисти',
+    blend: 'Сила смешивания',
+    brightness: 'Яркость',
+    colorEditor: 'Редактор цвета',
+    currentColor: 'Текущий цвет',
+    hexCode: 'HEX код цвета',
+    center: 'Центрировать вид',
+    squareBrush: 'Квадратная кисть',
+    circleBrush: 'Круглая кисть',
+    diamondBrush: 'Ромбовидная кисть',
+    confirmClear: 'Очистить холст?',
+    imageLoaded: 'Изображение загружено',
+    saved: 'Сохранено',
+    cancelled: 'Отменено',
+    returned: 'Возвращено',
+    undoAction: 'Отменено',
+    viewCentered: 'Вид центрирован',
+    mirrorOffToast: 'Зеркало выкл',
+    mirrorHToast: 'Зеркало: горизонтально',
+    mirrorVToast: 'Зеркало: вертикально',
+    colorCopied: 'Цвет скопирован',
+    floodFillLimit: 'Заливка ограничена',
+    error: 'Ошибка',
+    unicodeSaved: 'Сохранено в Unicode Grid',
+    editing: 'Редактирование',
+    copied: 'Скопировано',
+    confirmImport: 'Импортировать изображение в сетку?'
+  },
+  en: {
+    appTitle: 'Pixel Art Pro',
+    pencil: 'Pencil',
+    eraser: 'Eraser',
+    bucket: 'Fill',
+    eyedropper: 'Picker',
+    line: 'Line',
+    rectangle: 'Rectangle',
+    circle: 'Circle',
+    spray: 'Spray',
+    select: 'Select',
+    mirror: 'Mirror',
+    undo: 'Undo',
+    redo: 'Redo',
+    save: 'Save PNG',
+    openImage: 'Open Image',
+    unicodeGrid: 'Unicode Grid',
+    newCanvas: 'New Canvas',
+    centerView: 'Center View',
+    hslEditor: 'HSL Editor',
+    brushSquare: 'Square Brush',
+    brushCircle: 'Circle Brush',
+    brushDiamond: 'Diamond Brush',
+    totalVisits: 'Total Visits',
+    usageStats: 'Usage Statistics',
+    settings: 'Settings',
+    mirrorTitle: 'Mirroring',
+    mirrorH: 'Horizontal',
+    mirrorV: 'Vertical',
+    mirrorOff: 'Off',
+    back: 'Back',
+    gridSizeTitle: 'Select Grid Size',
+    cancel: 'Cancel',
+    importTitle: 'Image Import',
+    importFit: 'Fit image to canvas',
+    importResize: 'Resize canvas to image',
+    editCell: 'Edit',
+    copyCell: 'Copy Symbol',
+    hslTitle: 'Color Editor (HSL)',
+    hue: 'Hue (H)',
+    saturation: 'Saturation (S)',
+    lightness: 'Lightness (L)',
+    apply: 'Apply',
+    brushSize: 'Brush Size',
+    brushShape: 'Brush Shape',
+    opacity: 'Brush Opacity',
+    blend: 'Blend Strength',
+    brightness: 'Brightness',
+    colorEditor: 'Color Editor',
+    currentColor: 'Current Color',
+    hexCode: 'HEX Color Code',
+    center: 'Center View',
+    squareBrush: 'Square Brush',
+    circleBrush: 'Circle Brush',
+    diamondBrush: 'Diamond Brush',
+    confirmClear: 'Clear canvas?',
+    imageLoaded: 'Image loaded',
+    saved: 'Saved',
+    cancelled: 'Cancelled',
+    returned: 'Redone',
+    undoAction: 'Undone',
+    viewCentered: 'View centered',
+    mirrorOffToast: 'Mirror off',
+    mirrorHToast: 'Mirror: horizontal',
+    mirrorVToast: 'Mirror: vertical',
+    colorCopied: 'Color copied',
+    floodFillLimit: 'Fill limit reached',
+    error: 'Error',
+    unicodeSaved: 'Saved to Unicode Grid',
+    editing: 'Editing',
+    copied: 'Copied',
+    confirmImport: 'Import image to grid?'
+  }
+};
+
+function t(key) {
+  return translations[currentLang][key] || key;
+}
+
+let width = 16, height = 16, cellSize = 20;
+let pixels = [];
+let currentColor = '#000000';
+let brushOpacity = 1.0;
+let blendStrength = 1.0;
+let currentTool = 'pencil';
+let currentHSL = { h: 0, s: 100, l: 50 };
+let brushSize = 1;
+let brushType = 'square';
+let mirrorMode = 'off';
+let shapeStartX = -1, shapeStartY = -1;
+let tempCanvas = null;
+let scale = 1, panX = 0, panY = 0;
+let isDrawing = false, isGesture = false;
+let startPinchDist = 0, startScale = 1, startPanX = 0, startPanY = 0, startClientX = 0, startClientY = 0;
+let history = [], historyStep = -1;
+let offscreenCanvas, offscreenCtx;
+let dirtyPixels = new Set();
+let renderScheduled = false;
+let saveStateTimeout = null;
+let lastGridScale = 1;
+let zoomIndicatorTimeout = null;
+let unicodeGlyphs = {};
+let isEditingUnicode = false;
+let unicodeCellToEdit = null;
+let selectedUnicodeCell = null;
+let unicodeCanvas, unicodeCtx;
+let unicodeGridSize = 256;
+let unicodeGridCells = 16;
+let unicodeCellSize = 16;
+let unicodeScale = 1, unicodePanX = 0, unicodePanY = 0;
+let unicodeHistory = [], unicodeHistoryStep = -1;
+let unicodeIsDragging = false;
+let unicodeHasMoved = false;
+let unicodeLastX = 0, unicodeLastY = 0;
+let unicodeStartPinchDist = 0;
+let unicodeStartScale = 1;
+let unicodeStartPanX = 0, unicodeStartPanY = 0;
+let unicodePinchCenterX = 0, unicodePinchCenterY = 0;
+let unicodeLastTouchMidX = 0, unicodeLastTouchMidY = 0;
+let evCache = [];
+let prevDiff = -1;
+let unicodeEvCache = [];
+let unicodePrevDiff = -1;
+let drawDelayTimer = null;
+let canDraw = false;
+let pointerDownTime = 0;
+const DRAW_DELAY = 150;
+const CLICK_THRESHOLD = 200;
+const MOVE_THRESHOLD = 10;
+let unicodePointerDownTime = 0;
+let unicodeStartX = 0;
+let unicodeStartY = 0;
+let unicodeTotalMovement = 0;
+let cellModalLocked = false;
+let pendingImageFile = null;
+let pendingImageElement = null;
+
+const canvas = document.getElementById('pixelCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const container = document.getElementById('canvasContainer');
+const workspace = document.getElementById('workspace');
+const drawer = document.getElementById('drawer');
+const dragHandle = document.getElementById('dragHandle');
+const colorBox = document.getElementById('colorBox');
+const hexInput = document.getElementById('hexInput');
+const brightSlider = document.getElementById('brightnessSlider');
+const opacitySlider = document.getElementById('opacitySlider');
+const blendSlider = document.getElementById('blendSlider');
+const brushSizeSlider = document.getElementById('brushSizeSlider');
+const zoomIndicator = document.getElementById('zoomIndicator');
+const saveUnicodeBtn = document.getElementById('saveUnicodeBtn');
+const COLLAPSED_HEIGHT = 200;
+const PARTIAL_HEIGHT = window.innerHeight * 0.6;
+const FULL_HEIGHT = window.innerHeight * 0.95;
+let currentDrawerState = 'collapsed';
+
+function init() {
+  createBackgroundParticles();
+  loadStorage();
+  loadUnicodeGlyphs();
+  setupCanvas();
+  setupEvents();
+  setupDrawer();
+  setupUnicodeGrid();
+  generateBigPalette();
+  render();
+  resetView();
+  updateUI(currentColor);
+  setupTooltips();
+  lucide.createIcons();
+  updateTranslations();
+}
+
+function updateTranslations() {
+  document.getElementById('settingsTitle').textContent = t('settings');
+  document.getElementById('openImageText').textContent = t('openImage');
+  document.getElementById('saveText').textContent = t('save');
+  document.getElementById('newCanvasText').textContent = t('newCanvas');
+  document.getElementById('mirrorTitle').textContent = t('mirrorTitle');
+  document.getElementById('mirrorHText').textContent = t('mirrorH');
+  document.getElementById('mirrorVText').textContent = t('mirrorV');
+  document.getElementById('mirrorOffText').textContent = t('mirrorOff');
+  document.getElementById('mirrorBackText').textContent = t('back');
+  document.getElementById('unicodeSizeTitle').textContent = t('gridSizeTitle');
+  document.getElementById('unicodeCancelText').textContent = t('cancel');
+  document.getElementById('importTitle').textContent = t('importTitle');
+  document.getElementById('importFitText').textContent = t('importFit');
+  document.getElementById('importResizeText').textContent = t('importResize');
+  document.getElementById('importCancelText').textContent = t('cancel');
+  document.getElementById('editCellText').textContent = t('editCell');
+  document.getElementById('copyCellText').textContent = t('copyCell');
+  document.getElementById('cellBackText').textContent = t('back');
+  document.getElementById('unicodeCloseText').textContent = t('cancel');
+  document.getElementById('unicodeImportText').textContent = t('openImage');
+  document.getElementById('unicodeDownloadText').textContent = t('save');
+  document.getElementById('hslTitle').textContent = t('hslTitle');
+  document.getElementById('hslHText').textContent = t('hue');
+  document.getElementById('hslSText').textContent = t('saturation');
+  document.getElementById('hslLText').textContent = t('lightness');
+  document.getElementById('hslCancelText').textContent = t('cancel');
+  document.getElementById('hslApplyText').textContent = t('apply');
+  document.getElementById('brushSizeText').textContent = t('brushSize');
+  document.getElementById('brushShapeText').textContent = t('brushShape');
+  document.getElementById('opacityText').textContent = t('opacity');
+  document.getElementById('blendText').textContent = t('blend');
+  document.getElementById('brightnessText').textContent = t('brightness');
+  
+  document.querySelectorAll('[data-tooltip]').forEach(el => {
+    const key = el.getAttribute('data-tooltip-key');
+    if (key && translations[currentLang][key]) {
+      el.setAttribute('data-tooltip', translations[currentLang][key]);
+    }
+  });
+}
+
+function createBackgroundParticles() {
+  const bg = document.querySelector('.bg-animation');
+  for (let i = 0; i < 15; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 2;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDuration = (Math.random() * 10 + 10) + 's';
+    p.style.animationDelay = Math.random() * 5 + 's';
+    bg.appendChild(p);
+  }
+}
+
+function setupCanvas() {
+  const totalPixels = width * height;
+  if (totalPixels > 250000) cellSize = 3;
+  else if (totalPixels > 100000) cellSize = 5;
+  else if (totalPixels > 50000) cellSize = 8;
+  else if (totalPixels > 10000) cellSize = 10;
+  else if (width > 200 || height > 200) cellSize = 10;
+  else if (width > 100 || height > 100) cellSize = 15;
+  else cellSize = 20;
+  
+  canvas.width = width * cellSize;
+  canvas.height = height * cellSize;
+  ctx.imageSmoothingEnabled = false;
+  
+  offscreenCanvas = document.createElement('canvas');
+  offscreenCanvas.width = canvas.width;
+  offscreenCanvas.height = canvas.height;
+  offscreenCtx = offscreenCanvas.getContext('2d', { alpha: false, willReadFrequently: false });
+  offscreenCtx.imageSmoothingEnabled = false;
+}
+
+function getGridVisibleScale() {
+  const totalPixels = width * height;
+  if (totalPixels <= 1024) return 1.0;
+  if (totalPixels > 500000) return 8.0;
+  if (totalPixels > 250000) return 6.0;
+  if (totalPixels > 100000) return 5.0;
+  if (totalPixels > 50000) return 4.0;
+  if (totalPixels > 10000) return 3.5;
+  return 3.0;
+}
+
+function setupDrawer() {
+  let startY = 0;
+  let startH = COLLAPSED_HEIGHT;
+  let isDragging = false;
+  let velocity = 0;
+  let lastY = 0;
+  let lastTime = 0;
+
+  dragHandle.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    startY = e.touches[0].clientY;
+    startH = drawer.clientHeight;
+    lastY = startY;
+    lastTime = Date.now();
+    velocity = 0;
+    drawer.style.transition = 'none';
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const y = e.touches[0].clientY;
+    const delta = startY - y;
+    let newH = startH + delta;
+    if (newH < COLLAPSED_HEIGHT) newH = COLLAPSED_HEIGHT + (newH - COLLAPSED_HEIGHT) * 0.2;
+    if (newH > FULL_HEIGHT) newH = FULL_HEIGHT + (newH - FULL_HEIGHT) * 0.1;
+    drawer.style.height = newH + 'px';
+    
+    const now = Date.now();
+    const dt = now - lastTime;
+    if (dt > 0) velocity = (lastY - y) / dt * 15;
+    lastY = y;
+    lastTime = now;
+    updateDrawerContent(newH);
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    const currentH = drawer.clientHeight;
+    let targetH;
+    const projectedH = currentH + velocity * 20;
+
+    if (currentDrawerState === 'collapsed') {
+      if (projectedH > COLLAPSED_HEIGHT + 50 || velocity > 2) {
+        targetH = (projectedH > (PARTIAL_HEIGHT + FULL_HEIGHT) / 2 || velocity > 5) ? FULL_HEIGHT : PARTIAL_HEIGHT;
+      } else targetH = COLLAPSED_HEIGHT;
+    } else if (currentDrawerState === 'partial') {
+      if (velocity > 3 || projectedH > PARTIAL_HEIGHT + 100) targetH = FULL_HEIGHT;
+      else if (velocity < -3 || projectedH < PARTIAL_HEIGHT - 100) targetH = COLLAPSED_HEIGHT;
+      else targetH = PARTIAL_HEIGHT;
+    } else if (currentDrawerState === 'full') {
+      if (velocity < -3 || projectedH < FULL_HEIGHT - 100) targetH = (projectedH > PARTIAL_HEIGHT + 50) ? PARTIAL_HEIGHT : COLLAPSED_HEIGHT;
+      else targetH = FULL_HEIGHT;
+    }
+
+    const duration = Math.min(0.6, Math.max(0.3, Math.abs(targetH - currentH) / 1000));
+    drawer.style.transition = `height ${duration}s cubic-bezier(0.25, 0.8, 0.25, 1)`;
+    drawer.style.height = targetH + 'px';
+    
+    setTimeout(() => {
+      currentDrawerState = targetH === FULL_HEIGHT ? 'full' : (targetH === PARTIAL_HEIGHT ? 'partial' : 'collapsed');
+      if (currentDrawerState === 'full') {
+        drawer.classList.add('full-open');
+        drawer.classList.add('open');
+      } else if (currentDrawerState === 'partial') {
+        drawer.classList.remove('full-open');
+        drawer.classList.add('open');
+      } else {
+        drawer.classList.remove('full-open');
+        drawer.classList.remove('open');
+      }
+      updateDrawerContent(targetH);
+    }, duration * 1000);
+  });
+}
+
+function updateDrawerContent(height) {
+  const progress = Math.max(0, Math.min(1, (height - COLLAPSED_HEIGHT) / (FULL_HEIGHT - COLLAPSED_HEIGHT)));
+  document.querySelector('.drawer-expanded-content').style.opacity = progress > 0.2 ? 1 : progress * 5;
+}
+
+function setupEvents() {
+  workspace.addEventListener('pointerdown', onPointerDown);
+  workspace.addEventListener('pointermove', onPointerMove);
+  workspace.addEventListener('pointerup', onPointerUp);
+  workspace.addEventListener('pointercancel', onPointerUp);
+  workspace.addEventListener('pointerout', onPointerUp);
+  workspace.addEventListener('pointerleave', onPointerUp);
+  workspace.addEventListener('wheel', onWheel, { passive: false });
+
+  hexInput.addEventListener('change', e => {
+    let v = e.target.value;
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9A-F]{6}$/i.test(v)) setColor(v, true);
+  });
+
+  brightSlider.addEventListener('input', e => {
+    const l = e.target.value;
+    document.getElementById('brightVal').innerText = l + '%';
+    const [h, s] = hexToHsl(currentColor);
+    setColor(hslToHex(h, s, l), true, false);
+  });
+
+  opacitySlider.addEventListener('input', e => {
+    brushOpacity = e.target.value / 100;
+    document.getElementById('opacityVal').innerText = e.target.value + '%';
+    colorBox.style.opacity = 0.3 + (brushOpacity * 0.7);
+  });
+
+  blendSlider.addEventListener('input', e => {
+    blendStrength = e.target.value / 100;
+    document.getElementById('blendVal').innerText = e.target.value + '%';
+  });
+
+  brushSizeSlider.addEventListener('input', e => {
+    brushSize = parseInt(e.target.value);
+    document.getElementById('brushSizeVal').innerText = brushSize + 'px';
+  });
+
+  ['hsl-h', 'hsl-s', 'hsl-l'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateHSLPreview);
+  });
+}
+
+function onPointerDown(ev) {
+  evCache.push(ev);
+  
+  if (evCache.length === 1) {
+    pointerDownTime = Date.now();
+    canDraw = false;
+    isDrawing = false;
+    isGesture = false;
+    window.lastDrawX = -1;
+    window.lastDrawY = -1;
+    
+    clearTimeout(drawDelayTimer);
+    drawDelayTimer = setTimeout(() => {
+      if (evCache.length === 1) {
+        canDraw = true;
+        isDrawing = true;
+        const firstEv = evCache[0];
+        processDraw(firstEv.clientX, firstEv.clientY, false);
+      }
+    }, DRAW_DELAY);
+    
+  } else if (evCache.length === 2) {
+    clearTimeout(drawDelayTimer);
+    canDraw = false;
+    isDrawing = false;
+    isGesture = true;
+    
+    const touch1 = evCache[0];
+    const touch2 = evCache[1];
+    startPinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+    startScale = scale;
+    const rect = workspace.getBoundingClientRect();
+    startClientX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+    startClientY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+    startPanX = panX;
+    startPanY = panY;
+  }
+}
+
+function onPointerMove(ev) {
+  const index = evCache.findIndex(cachedEv => cachedEv.pointerId === ev.pointerId);
+  if (index !== -1) evCache[index] = ev;
+  
+  if (evCache.length === 2 && isGesture) {
+    const touch1 = evCache[0];
+    const touch2 = evCache[1];
+    const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+    const newScale = Math.max(0.1, Math.min(startScale * (dist / startPinchDist), 20));
+    
+    const rect = workspace.getBoundingClientRect();
+    const cx = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+    const cy = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+    
+    const worldX = (startClientX - startPanX) / startScale;
+    const worldY = (startClientY - startPanY) / startScale;
+    
+    scale = newScale;
+    panX = cx - worldX * scale;
+    panY = cy - worldY * scale;
+    
+    updateTransform();
+  } else if (evCache.length === 1 && canDraw && isDrawing) {
+    processDraw(ev.clientX, ev.clientY, true);
+  }
+}
+
+function onPointerUp(ev) {
+  const index = evCache.findIndex(cachedEv => cachedEv.pointerId === ev.pointerId);
+  if (index !== -1) evCache.splice(index, 1);
+  
+  clearTimeout(drawDelayTimer);
+  
+  if (evCache.length < 2) {
+    isGesture = false;
+    prevDiff = -1;
+  }
+  
+  if (evCache.length === 0) {
+    if (isDrawing && canDraw) {
+      if (['line', 'rectangle', 'circle'].includes(currentTool) && shapeStartX !== -1) {
+        shapeStartX = -1;
+        shapeStartY = -1;
+        tempCanvas = null;
+      }
+      if (isEditingUnicode) saveUnicodeState();
+      else saveState();
+      dirtyPixels.clear();
+    }
+    canDraw = false;
+    isDrawing = false;
+  }
+}
+
+function setupUnicodeGrid() {
+  unicodeCanvas = document.getElementById('unicodeGridCanvas');
+  unicodeCtx = unicodeCanvas.getContext('2d');
+  const container = document.getElementById('unicodeGridContainer');
+  
+  container.addEventListener('pointerdown', unicodePointerDown);
+  container.addEventListener('pointermove', unicodePointerMove);
+  container.addEventListener('pointerup', unicodePointerUp);
+  container.addEventListener('pointercancel', unicodePointerUp);
+  container.addEventListener('pointerout', unicodePointerUp);
+  container.addEventListener('pointerleave', unicodePointerUp);
+}
+
+function unicodePointerDown(ev) {
+  ev.preventDefault();
+  
+  unicodeEvCache.push(ev);
+  
+  if (unicodeEvCache.length === 1) {
+    unicodePointerDownTime = Date.now();
+    unicodeIsDragging = true;
+    unicodeHasMoved = false;
+    unicodeLastX = ev.clientX;
+    unicodeLastY = ev.clientY;
+    unicodeStartX = ev.clientX;
+    unicodeStartY = ev.clientY;
+    unicodeTotalMovement = 0;
+  } else if (unicodeEvCache.length === 2) {
+    unicodeIsDragging = false;
+    unicodeHasMoved = true;
+    
+    const touch1 = unicodeEvCache[0];
+    const touch2 = unicodeEvCache[1];
+    unicodeStartPinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+    unicodeStartScale = unicodeScale;
+    const rect = document.getElementById('unicodeGridContainer').getBoundingClientRect();
+    unicodeLastTouchMidX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+    unicodeLastTouchMidY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+    unicodeStartPanX = unicodePanX;
+    unicodeStartPanY = unicodePanY;
+  }
+}
+
+function unicodePointerMove(ev) {
+  ev.preventDefault();
+  
+  const index = unicodeEvCache.findIndex(cachedEv => cachedEv.pointerId === ev.pointerId);
+  if (index !== -1) unicodeEvCache[index] = ev;
+  
+  if (unicodeEvCache.length === 2) {
+    const touch1 = unicodeEvCache[0];
+    const touch2 = unicodeEvCache[1];
+    const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+    const newScale = Math.max(0.5, Math.min(unicodeStartScale * (dist / unicodeStartPinchDist), 5));
+    
+    const rect = document.getElementById('unicodeGridContainer').getBoundingClientRect();
+    const midX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+    const midY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+    
+    const worldX = (unicodeLastTouchMidX - unicodeStartPanX) / unicodeStartScale;
+    const worldY = (unicodeLastTouchMidY - unicodeStartPanY) / unicodeStartScale;
+    
+    unicodeScale = newScale;
+    unicodePanX = midX - worldX * unicodeScale;
+    unicodePanY = midY - worldY * unicodeScale;
+    
+    updateUnicodeTransform();
+    unicodeHasMoved = true;
+  } else if (unicodeEvCache.length === 1 && unicodeIsDragging) {
+    const dx = ev.clientX - unicodeLastX;
+    const dy = ev.clientY - unicodeLastY;
+    
+    unicodeTotalMovement += Math.abs(dx) + Math.abs(dy);
+    
+    if (unicodeTotalMovement > MOVE_THRESHOLD) {
+      unicodeHasMoved = true;
+    }
+    
+    unicodePanX += dx;
+    unicodePanY += dy;
+    unicodeLastX = ev.clientX;
+    unicodeLastY = ev.clientY;
+    updateUnicodeTransform();
+  }
+}
+
+function unicodePointerUp(ev) {
+  ev.preventDefault();
+  
+  const index = unicodeEvCache.findIndex(cachedEv => cachedEv.pointerId === ev.pointerId);
+  if (index !== -1) unicodeEvCache.splice(index, 1);
+  
+  if (unicodeEvCache.length === 0) {
+    const clickDuration = Date.now() - unicodePointerDownTime;
+    const totalMove = Math.hypot(ev.clientX - unicodeStartX, ev.clientY - unicodeStartY);
+    
+    const isClick = clickDuration < CLICK_THRESHOLD && 
+                    totalMove < MOVE_THRESHOLD && 
+                    !unicodeHasMoved;
+    
+    if (isClick) {
+      const rect = unicodeCanvas.getBoundingClientRect();
+      
+      const clickX = ev.clientX - rect.left;
+      const clickY = ev.clientY - rect.top;
+      
+      const displayWidth = rect.width;
+      const displayHeight = rect.height;
+      
+      const canvasX = (clickX / displayWidth) * unicodeGridSize;
+      const canvasY = (clickY / displayHeight) * unicodeGridSize;
+      
+      const x = Math.floor(canvasX / unicodeCellSize);
+      const y = Math.floor(canvasY / unicodeCellSize);
+      
+      if (x >= 0 && x < unicodeGridCells && y >= 0 && y < unicodeGridCells) {
+        selectedUnicodeCell = { x, y };
+        setTimeout(() => {
+          showCellActionModal(x, y);
+        }, 50);
+      }
+    }
+    
+    unicodeIsDragging = false;
+    unicodeHasMoved = false;
+    unicodeTotalMovement = 0;
+  } else if (unicodeEvCache.length === 1) {
+    unicodeLastX = unicodeEvCache[0].clientX;
+    unicodeLastY = unicodeEvCache[0].clientY;
+    const rect = document.getElementById('unicodeGridContainer').getBoundingClientRect();
+    unicodeLastTouchMidX = unicodeEvCache[0].clientX - rect.left;
+    unicodeLastTouchMidY = unicodeEvCache[0].clientY - rect.top;
+    unicodeStartPanX = unicodePanX;
+    unicodeStartPanY = unicodePanY;
+    unicodeIsDragging = true;
+  }
+}
+
+function updateUnicodeTransform() {
+  unicodeCanvas.style.transform = `translate(${unicodePanX}px, ${unicodePanY}px) scale(${unicodeScale})`;
+}
+
+function openUnicodeSizeSelector() {
+  document.getElementById('unicodeSizeModal').classList.add('open');
+  lucide.createIcons();
+}
+
+function closeUnicodeSizeModal() {
+  document.getElementById('unicodeSizeModal').classList.remove('open');
+}
+
+function openUnicodeWithSize(size) {
+  closeUnicodeSizeModal();
+  toggleMenu();
+  unicodeGridSize = size;
+  unicodeGridCells = size === 256 ? 16 : 32;
+  unicodeCellSize = size === 256 ? 16 : 32;
+  openUnicodeModal();
+}
+
+function resetUnicodeView() {
+  const container = document.getElementById('unicodeGridContainer');
+  const rect = container.getBoundingClientRect();
+  const minDim = Math.min(rect.width, rect.height);
+  unicodeScale = (minDim - 40) / unicodeGridSize;
+  unicodePanX = (rect.width - unicodeGridSize * unicodeScale) / 2;
+  unicodePanY = (rect.height - unicodeGridSize * unicodeScale) / 2;
+  updateUnicodeTransform();
+}
+
+function showCellActionModal(cellX, cellY) {
+  if (cellModalLocked) return;
+  cellModalLocked = true;
+  
+  const prefix = unicodeGridSize === 256 ? 'E0' : 'E1';
+  const rowHex = cellY.toString(16).toUpperCase().padStart(2, '0');
+  const colHex = cellX.toString(16).toUpperCase().padStart(2, '0');
+  const code = `${prefix}${rowHex}${colHex}`;
+  document.getElementById('cellTitle').textContent = `Ячейка ${code}`;
+  document.getElementById('cellCoords').textContent = `Координаты: ${cellX}, ${cellY} (${unicodeGridCells}x${unicodeGridCells})`;
+  document.getElementById('cellActionModal').classList.add('open');
+  lucide.createIcons();
+  
+  setTimeout(() => {
+    cellModalLocked = false;
+  }, 300);
+}
+
+function closeCellActionModal() {
+  document.getElementById('cellActionModal').classList.remove('open');
+  cellModalLocked = false;
+}
+
+function editSelectedCell() {
+  if (!selectedUnicodeCell) {
+    showToast('Ячейка не выбрана');
+    return;
+  }
+  
+  const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
+  const key = `${prefix}_${selectedUnicodeCell.x}_${selectedUnicodeCell.y}`;
+  unicodeCellToEdit = { 
+    ...selectedUnicodeCell, 
+    key: key, 
+    gridSize: unicodeGridSize 
+  };
+  
+  const cellPixelSize = unicodeGridSize === 256 ? 16 : 32;
+  
+  if (unicodeGlyphs[key] && Array.isArray(unicodeGlyphs[key])) {
+    pixels = JSON.parse(JSON.stringify(unicodeGlyphs[key]));
+    width = pixels[0] ? pixels[0].length : cellPixelSize;
+    height = pixels.length;
+    
+    if (width !== cellPixelSize || height !== cellPixelSize) {
+      const newPixels = Array(cellPixelSize).fill().map(() => Array(cellPixelSize).fill(null));
+      for (let y = 0; y < Math.min(height, cellPixelSize); y++) {
+        for (let x = 0; x < Math.min(width, cellPixelSize); x++) {
+          if (pixels[y] && pixels[y][x]) {
+            newPixels[y][x] = pixels[y][x];
+          }
+        }
+      }
+      pixels = newPixels;
+      width = cellPixelSize;
+      height = cellPixelSize;
+    }
+  } else {
+    width = cellPixelSize;
+    height = cellPixelSize;
+    pixels = Array(height).fill().map(() => Array(width).fill(null));
+  }
+  
+  isEditingUnicode = true;
+  unicodeHistory = [];
+  unicodeHistoryStep = -1;
+  saveUnicodeState();
+  
+  setupCanvas();
+  render();
+  resetView();
+  closeCellActionModal();
+  closeUnicodeModal();
+  saveUnicodeBtn.classList.add('visible');
+  
+  const code = unicodeGridSize === 256 ? 
+    `E0${selectedUnicodeCell.y.toString(16).toUpperCase().padStart(2, '0')}${selectedUnicodeCell.x.toString(16).toUpperCase().padStart(2, '0')}` :
+    `E1${selectedUnicodeCell.y.toString(16).toUpperCase().padStart(2, '0')}${selectedUnicodeCell.x.toString(16).toUpperCase().padStart(2, '0')}`;
+  
+  showToast(`${t('editing')} ${code} (${width}x${height})`);
+  lucide.createIcons();
+}
+
+function copySelectedCellSymbol() {
+  if (!selectedUnicodeCell) return;
+  const baseCode = unicodeGridSize === 256 ? 0xE000 : 0xE100;
+  const code = baseCode + (selectedUnicodeCell.y * unicodeGridCells + selectedUnicodeCell.x);
+  const char = String.fromCodePoint(code);
+  navigator.clipboard.writeText(char).then(() => {
+    showToast(`${t('copied')}: ${char}`);
+    closeCellActionModal();
+  });
+}
+
+function saveUnicodeCell() {
+  if (!isEditingUnicode || !unicodeCellToEdit) {
+    showToast('Нет данных для сохранения');
+    return;
+  }
+  
+  const key = unicodeCellToEdit.key;
+  unicodeGlyphs[key] = JSON.parse(JSON.stringify(pixels));
+  saveUnicodeGlyphs();
+  
+  isEditingUnicode = false;
+  unicodeCellToEdit = null;
+  saveUnicodeBtn.classList.remove('visible');
+  
+  showToast(t('unicodeSaved'));
+  
+  setTimeout(() => {
+    openUnicodeModal();
+    setTimeout(() => {
+      renderUnicodeGrid();
+    }, 100);
+  }, 100);
+}
+
+function loadUnicodeGlyphs() {
+  try {
+    const saved = localStorage.getItem('unicode_glyphs_v3');
+    if (saved) {
+      const loaded = JSON.parse(saved);
+      if (typeof loaded === 'object' && loaded !== null) {
+        unicodeGlyphs = loaded;
+      }
+    }
+  } catch (e) {
+    unicodeGlyphs = {};
+  }
+}
+
+function saveUnicodeGlyphs() {
+  try {
+    localStorage.setItem('unicode_glyphs_v3', JSON.stringify(unicodeGlyphs));
+  } catch (e) {
+    showToast(t('error'));
+  }
+}
+
+function renderUnicodeGrid() {
+  unicodeCanvas.width = unicodeGridSize;
+  unicodeCanvas.height = unicodeGridSize;
+  
+  unicodeCtx.fillStyle = '#000000';
+  unicodeCtx.fillRect(0, 0, unicodeGridSize, unicodeGridSize);
+  
+  const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
+  
+  for (let row = 0; row < unicodeGridCells; row++) {
+    for (let col = 0; col < unicodeGridCells; col++) {
+      const key = `${prefix}_${col}_${row}`;
+      
+      if (unicodeGlyphs[key]) {
+        const glyphData = unicodeGlyphs[key];
+        const startX = col * unicodeCellSize;
+        const startY = row * unicodeCellSize;
+        
+        if (Array.isArray(glyphData) && glyphData.length > 0) {
+          for (let y = 0; y < glyphData.length && y < unicodeCellSize; y++) {
+            if (Array.isArray(glyphData[y])) {
+              for (let x = 0; x < glyphData[y].length && x < unicodeCellSize; x++) {
+                const color = glyphData[y][x];
+                if (color && color !== null) {
+                  unicodeCtx.fillStyle = color;
+                  unicodeCtx.fillRect(startX + x, startY + y, 1, 1);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  unicodeCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  unicodeCtx.lineWidth = 2;
+  unicodeCtx.beginPath();
+  for (let i = 0; i <= unicodeGridCells; i++) {
+    const pos = i * unicodeCellSize;
+    unicodeCtx.moveTo(pos, 0);
+    unicodeCtx.lineTo(pos, unicodeGridSize);
+    unicodeCtx.moveTo(0, pos);
+    unicodeCtx.lineTo(unicodeGridSize, pos);
+  }
+  unicodeCtx.stroke();
+
+  unicodeCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  unicodeCtx.lineWidth = 0.5;
+  unicodeCtx.beginPath();
+  for (let row = 0; row < unicodeGridCells; row++) {
+    for (let col = 0; col < unicodeGridCells; col++) {
+      const startX = col * unicodeCellSize;
+      const startY = row * unicodeCellSize;
+      for (let i = 1; i < unicodeCellSize; i++) {
+        unicodeCtx.moveTo(startX + i, startY);
+        unicodeCtx.lineTo(startX + i, startY + unicodeCellSize);
+        unicodeCtx.moveTo(startX, startY + i);
+        unicodeCtx.lineTo(startX + unicodeCellSize, startY + i);
+      }
+    }
+  }
+  unicodeCtx.stroke();
+}
+
+function openUnicodeModal() {
+  document.getElementById('unicodeModal').classList.add('open');
+  document.getElementById('unicodeHeaderTitle').textContent = `Unicode Grid (${unicodeGridCells}x${unicodeGridCells})`;
+  setTimeout(() => {
+    resetUnicodeView();
+    renderUnicodeGrid();
+  }, 100);
+}
+
+function closeUnicodeModal() {
+  document.getElementById('unicodeModal').classList.remove('open');
+}
+
+function downloadUnicodeGlyph() {
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = unicodeGridSize;
+  exportCanvas.height = unicodeGridSize;
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.fillStyle = '#000000';
+  exportCtx.fillRect(0, 0, unicodeGridSize, unicodeGridSize);
+  
+  const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
+  
+  for (let row = 0; row < unicodeGridCells; row++) {
+    for (let col = 0; col < unicodeGridCells; col++) {
+      const key = `${prefix}_${col}_${row}`;
+      if (unicodeGlyphs[key]) {
+        const glyphData = unicodeGlyphs[key];
+        const startX = col * unicodeCellSize;
+        const startY = row * unicodeCellSize;
+        for (let y = 0; y < glyphData.length; y++) {
+          for (let x = 0; x < glyphData[y].length; x++) {
+            const color = glyphData[y][x];
+            if (color) {
+              exportCtx.fillStyle = color;
+              exportCtx.fillRect(startX + x, startY + y, 1, 1);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  const a = document.createElement('a');
+  a.download = `glyph_${unicodeGridSize === 256 ? 'E0' : 'E1'}.png`;
+  a.href = exportCanvas.toDataURL();
+  a.click();
+  showToast('Grid saved');
+}
+
+function requestUnicodeImport() {
+  if (confirm(t('confirmImport'))) {
+    document.getElementById('unicodeImportInput').click();
+  }
+}
+
+function handleUnicodeImageImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      processImageToUnicodeGrid(img);
+      event.target.value = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function processImageToUnicodeGrid(img) {
+  const targetSize = unicodeGridSize;
+  const cellsPerRow = unicodeGridCells;
+  const cellPixelSize = unicodeCellSize;
+  
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = targetSize;
+  tempCanvas.height = targetSize;
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.imageSmoothingEnabled = false;
+  tempCtx.drawImage(img, 0, 0, targetSize, targetSize);
+  
+  const imageData = tempCtx.getImageData(0, 0, targetSize, targetSize);
+  const data = imageData.data;
+  
+  const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
+  
+  for (let row = 0; row < cellsPerRow; row++) {
+    for (let col = 0; col < cellsPerRow; col++) {
+      const cellPixels = [];
+      const startX = col * cellPixelSize;
+      const startY = row * cellPixelSize;
+      
+      for (let y = 0; y < cellPixelSize; y++) {
+        const rowPixels = [];
+        for (let x = 0; x < cellPixelSize; x++) {
+          const imgX = startX + x;
+          const imgY = startY + y;
+          const idx = (imgY * targetSize + imgX) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          const a = data[idx + 3];
+          
+          if (a > 128) {
+            rowPixels.push(rgbToHex(r, g, b));
+          } else {
+            rowPixels.push(null);
+          }
+        }
+        cellPixels.push(rowPixels);
+      }
+      
+      const key = `${prefix}_${col}_${row}`;
+      unicodeGlyphs[key] = cellPixels;
+    }
+  }
+  
+  saveUnicodeGlyphs();
+  renderUnicodeGrid();
+  showToast(t('imageLoaded'));
+}
+
+function setBrushType(type) {
+  brushType = type;
+  document.querySelectorAll('.brush-type-btn').forEach(btn => btn.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+function getBrushPixels(centerX, centerY) {
+  const pixels = [];
+  const radius = Math.floor(brushSize / 2);
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = centerX + dx;
+      const y = centerY + dy;
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      let shouldDraw = false;
+      if (brushType === 'square') shouldDraw = true;
+      else if (brushType === 'circle') {
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        shouldDraw = dist <= radius;
+      } else if (brushType === 'diamond') {
+        shouldDraw = Math.abs(dx) + Math.abs(dy) <= radius;
+      }
+      if (shouldDraw) pixels.push({ x, y });
+    }
+  }
+  return pixels;
+}
+
+function openImageImportSelector() {
+  document.getElementById('fileInput').click();
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'image/bmp', 'image/svg+xml'];
+  if (!allowedTypes.includes(file.type)) {
+    showToast('Unsupported format');
+    return;
+  }
+  
+  pendingImageFile = file;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      pendingImageElement = img;
+      document.getElementById('importModal').classList.add('open');
+      lucide.createIcons();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function closeImportModal() {
+  document.getElementById('importModal').classList.remove('open');
+  pendingImageFile = null;
+  pendingImageElement = null;
+}
+
+function processImageImport(mode) {
+  if (!pendingImageElement) return;
+  
+  const img = pendingImageElement;
+  
+  if (mode === 'fit') {
+    loadImageToCanvas(img, width, height);
+    showToast(t('imageLoaded'));
+    closeImportModal();
+    toggleMenu();
+    if (isEditingUnicode) saveUnicodeState();
+    else saveStateImmediate();
+  } else if (mode === 'resize') {
+    let newWidth = Math.min(img.width, 2000);
+    let newHeight = Math.min(img.height, 2000);
+    const aspect = img.width / img.height;
+    if (newWidth / newHeight > aspect) newWidth = Math.round(newHeight * aspect);
+    else newHeight = Math.round(newWidth / aspect);
+    width = newWidth;
+    height = newHeight;
+    document.getElementById('wInput').value = width;
+    document.getElementById('hInput').value = height;
+    setupCanvas();
+    pixels = Array(height).fill().map(() => Array(width).fill(null));
+    loadImageToCanvas(img, width, height);
+    showToast(t('imageLoaded'));
+    closeImportModal();
+    toggleMenu();
+    if (isEditingUnicode) saveUnicodeState();
+    else saveStateImmediate();
+  }
+}
+
+function loadImageToCanvas(img, targetWidth, targetHeight) {
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = targetWidth;
+  tempCanvas.height = targetHeight;
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+  tempCtx.imageSmoothingEnabled = false;
+  tempCtx.drawImage(img, 0, 0, targetWidth, targetHeight);
+  const imageData = tempCtx.getImageData(0, 0, targetWidth, targetHeight);
+  const data = imageData.data;
+  for (let y = 0; y < targetHeight; y++) {
+    for (let x = 0; x < targetWidth; x++) {
+      const i = (y * targetWidth + x) * 4;
+      if (data[i + 3] > 128) pixels[y][x] = rgbToHex(data[i], data[i + 1], data[i + 2]);
+      else pixels[y][x] = null;
+    }
+  }
+  render();
+  resetView();
+}
+
+function openHSLModal() {
+  const [h, s, l] = hexToHsl(currentColor);
+  currentHSL = { h, s, l };
+  document.getElementById('hsl-h').value = h;
+  document.getElementById('hsl-s').value = s;
+  document.getElementById('hsl-l').value = l;
+  updateHSLPreview();
+  document.getElementById('hslModal').classList.add('open');
+}
+
+function closeHSLModal() {
+  document.getElementById('hslModal').classList.remove('open');
+}
+
+function applyHSLColor() {
+  const h = parseInt(document.getElementById('hsl-h').value);
+  const s = parseInt(document.getElementById('hsl-s').value);
+  const l = parseInt(document.getElementById('hsl-l').value);
+  const newColor = hslToHex(h, s, l);
+  setColor(newColor, true, true);
+  closeHSLModal();
+  showToast(t('colorCopied'));
+}
+
+function updateHSLPreview() {
+  const h = document.getElementById('hsl-h').value;
+  const s = document.getElementById('hsl-s').value;
+  const l = document.getElementById('hsl-l').value;
+  document.getElementById('hslPreview').style.background = `hsl(${h}, ${s}%, ${l}%)`;
+  document.getElementById('hsl-s').style.color = `hsl(${h}, 100%, 50%)`;
+  document.getElementById('hsl-l').style.color = `hsl(${h}, ${s}%, 50%)`;
+  document.getElementById('hsl-h-val').innerText = h + '°';
+  document.getElementById('hsl-s-val').innerText = s + '%';
+  document.getElementById('hsl-l-val').innerText = l + '%';
+}
+
+function setColor(hex, updateInputs = true, updateSlider = true) {
+  currentColor = hex.toUpperCase();
+  colorBox.style.backgroundColor = currentColor;
+  hexInput.value = currentColor;
+  if (updateSlider) {
+    const [h, s, l] = hexToHsl(currentColor);
+    brightSlider.value = l;
+    document.getElementById('brightVal').innerText = l + '%';
+  }
+}
+
+function blendColors(bgHex, fgHex, alpha) {
+  if (alpha >= 1 || !bgHex) return fgHex;
+  const bg = hexToRgb(bgHex), fg = hexToRgb(fgHex);
+  const r = Math.round(alpha * fg.r + (1 - alpha) * bg.r);
+  const g = Math.round(alpha * fg.g + (1 - alpha) * bg.g);
+  const b = Math.round(alpha * fg.b + (1 - alpha) * bg.b);
+  return rgbToHex(r, g, b);
+}
+
+function openMirrorModal() {
+  document.getElementById('mirrorModal').classList.add('open');
+  updateMirrorUI();
+  lucide.createIcons();
+}
+
+function closeMirrorModal() {
+  document.getElementById('mirrorModal').classList.remove('open');
+}
+
+function setMirrorMode(mode) {
+  mirrorMode = mode;
+  updateMirrorUI();
+  closeMirrorModal();
+  const btn = document.getElementById('mirrorBtn');
+  if (mode === 'off') {
+    btn.classList.remove('active');
+    showToast(t('mirrorOffToast'));
+  } else {
+    btn.classList.add('active');
+    showToast(mode === 'horizontal' ? t('mirrorHToast') : t('mirrorVToast'));
+  }
+}
+
+function updateMirrorUI() {
+  document.getElementById('mirrorHBtn').classList.toggle('active', mirrorMode === 'horizontal');
+  document.getElementById('mirrorVBtn').classList.toggle('active', mirrorMode === 'vertical');
+  document.getElementById('mirrorOffBtn').classList.toggle('active', mirrorMode === 'off');
+}
+
+function processDraw(cx, cy, isDrag) {
+  const rect = container.getBoundingClientRect();
+  const x = Math.floor((cx - rect.left) / scale / cellSize);
+  const y = Math.floor((cy - rect.top) / scale / cellSize);
+  if (x < 0 || x >= width || y < 0 || y >= height) return;
+
+  if (currentTool === 'bucket' && !isDrag) {
+    floodFill(x, y);
+    return;
+  }
+  if (currentTool === 'eyedropper' && !isDrag) {
+    const c = pixels[y][x];
+    if (c) {
+      setColor(c);
+      setTool('pencil');
+      showToast(t('colorCopied') + ': ' + c);
+    }
+    return;
+  }
+  if (['line', 'rectangle', 'circle'].includes(currentTool)) {
+    if (!isDrag) {
+      shapeStartX = x;
+      shapeStartY = y;
+      tempCanvas = JSON.parse(JSON.stringify(pixels));
+    } else if (shapeStartX !== -1) {
+      pixels = JSON.parse(JSON.stringify(tempCanvas));
+      drawShape(shapeStartX, shapeStartY, x, y);
+      render();
+    }
+    return;
+  }
+  if (currentTool === 'spray') {
+    drawSpray(x, y);
+    return;
+  }
+
+  const brushPixels = getBrushPixels(x, y);
+  if (isDrag && window.lastDrawX !== -1) {
+    const steps = Math.max(Math.abs(x - window.lastDrawX), Math.abs(y - window.lastDrawY));
+    if (steps > 1) {
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const ix = Math.round(window.lastDrawX + (x - window.lastDrawX) * t);
+        const iy = Math.round(window.lastDrawY + (y - window.lastDrawY) * t);
+        const interpPixels = getBrushPixels(ix, iy);
+        interpPixels.forEach(p => {
+          drawPixelDirect(p.x, p.y);
+          applyMirror(p.x, p.y);
+        });
+      }
+    } else {
+      brushPixels.forEach(p => {
+        drawPixelDirect(p.x, p.y);
+        applyMirror(p.x, p.y);
+      });
+    }
+  } else {
+    brushPixels.forEach(p => {
+      drawPixelDirect(p.x, p.y);
+      applyMirror(p.x, p.y);
+    });
+  }
+  window.lastDrawX = x;
+  window.lastDrawY = y;
+}
+
+function applyMirror(x, y) {
+  if (mirrorMode === 'horizontal') {
+    const brushPixels = getBrushPixels(x, y);
+    brushPixels.forEach(p => {
+      const mirrorX = width - 1 - p.x;
+      if (mirrorX >= 0 && mirrorX < width) {
+        drawPixelDirect(mirrorX, p.y);
+      }
+    });
+  } else if (mirrorMode === 'vertical') {
+    const brushPixels = getBrushPixels(x, y);
+    brushPixels.forEach(p => {
+      const mirrorY = height - 1 - p.y;
+      if (mirrorY >= 0 && mirrorY < height) {
+        drawPixelDirect(p.x, mirrorY);
+      }
+    });
+  }
+}
+
+function drawShape(x1, y1, x2, y2) {
+  if (currentTool === 'line') drawLine(x1, y1, x2, y2);
+  else if (currentTool === 'rectangle') drawRectangle(x1, y1, x2, y2);
+  else if (currentTool === 'circle') drawCircle(x1, y1, x2, y2);
+}
+
+function drawLine(x1, y1, x2, y2) {
+  const dx = Math.abs(x2 - x1);
+  const dy = Math.abs(y2 - y1);
+  const sx = x1 < x2 ? 1 : -1;
+  const sy = y1 < y2 ? 1 : -1;
+  let err = dx - dy;
+  let x = x1, y = y1;
+  while (true) {
+    drawPixelDirect(x, y);
+    applyMirror(x, y);
+    if (x === x2 && y === y2) break;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+  }
+}
+
+function drawRectangle(x1, y1, x2, y2) {
+  const minX = Math.min(x1, x2);
+  const maxX = Math.max(x1, x2);
+  const minY = Math.min(y1, y2);
+  const maxY = Math.max(y1, y2);
+  for (let x = minX; x <= maxX; x++) {
+    drawPixelDirect(x, minY);
+    drawPixelDirect(x, maxY);
+    applyMirror(x, minY);
+    applyMirror(x, maxY);
+  }
+  for (let y = minY; y <= maxY; y++) {
+    drawPixelDirect(minX, y);
+    drawPixelDirect(maxX, y);
+    applyMirror(minX, y);
+    applyMirror(maxX, y);
+  }
+}
+
+function drawCircle(x1, y1, x2, y2) {
+  const cx = x1, cy = y1;
+  const radius = Math.round(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2));
+  let x = radius, y = 0, err = 0;
+  while (x >= y) {
+    drawPixelDirect(cx + x, cy + y);
+    drawPixelDirect(cx + y, cy + x);
+    drawPixelDirect(cx - y, cy + x);
+    drawPixelDirect(cx - x, cy + y);
+    drawPixelDirect(cx - x, cy - y);
+    drawPixelDirect(cx - y, cy - x);
+    drawPixelDirect(cx + y, cy - x);
+    drawPixelDirect(cx + x, cy - y);
+    applyMirror(cx + x, cy + y);
+    applyMirror(cx + y, cy + x);
+    applyMirror(cx - y, cy + x);
+    applyMirror(cx - x, cy + y);
+    applyMirror(cx - x, cy - y);
+    applyMirror(cx - y, cy - x);
+    applyMirror(cx + y, cy - x);
+    applyMirror(cx + x, cy - y);
+    if (err <= 0) { y += 1; err += 2 * y + 1; }
+    if (err > 0) { x -= 1; err -= 2 * x + 1; }
+  }
+}
+
+function drawSpray(cx, cy) {
+  const radius = brushSize * 2;
+  const density = brushSize * 3;
+  for (let i = 0; i < density; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * radius;
+    const x = Math.round(cx + Math.cos(angle) * dist);
+    const y = Math.round(cy + Math.sin(angle) * dist);
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      drawPixelDirect(x, y);
+      applyMirror(x, y);
+    }
+  }
+}
+
+function drawPixelDirect(x, y) {
+  if (x < 0 || x >= width || y < 0 || y >= height) return;
+  let newColor;
+  if (currentTool === 'eraser') newColor = null;
+  else {
+    const oldColor = pixels[y][x];
+    const finalAlpha = brushOpacity * blendStrength;
+    newColor = blendColors(oldColor, currentColor, finalAlpha);
+  }
+  if (pixels[y][x] !== newColor) {
+    pixels[y][x] = newColor;
+    dirtyPixels.add(`${x},${y}`);
+    scheduleRender();
+  }
+}
+
+function scheduleRender() {
+  if (renderScheduled) return;
+  renderScheduled = true;
+  requestAnimationFrame(() => {
+    renderDirtyPixels();
+    renderScheduled = false;
+  });
+}
+
+function renderDirtyPixels() {
+  if (dirtyPixels.size === 0) return;
+  const pixelsArray = Array.from(dirtyPixels);
+  dirtyPixels.clear();
+  for (let i = 0; i < pixelsArray.length; i += BATCH_RENDER_SIZE) {
+    const batch = pixelsArray.slice(i, i + BATCH_RENDER_SIZE);
+    batch.forEach(key => {
+      const [x, y] = key.split(',').map(Number);
+      const color = pixels[y][x];
+      if (color) {
+        offscreenCtx.fillStyle = color;
+        offscreenCtx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      } else {
+        offscreenCtx.fillStyle = '#000000';
+        offscreenCtx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      }
+    });
+  }
+  ctx.drawImage(offscreenCanvas, 0, 0);
+  drawGrid();
+}
+
+function drawGrid() {
+  const GRID_VISIBLE_SCALE = getGridVisibleScale();
+  const GRID_FADE_RANGE = 0.5;
+  if (scale < GRID_VISIBLE_SCALE - GRID_FADE_RANGE) return;
+  let gridOpacity = 0;
+  if (scale >= GRID_VISIBLE_SCALE) gridOpacity = 0.25;
+  else {
+    const progress = (scale - (GRID_VISIBLE_SCALE - GRID_FADE_RANGE)) / GRID_FADE_RANGE;
+    gridOpacity = progress * 0.25;
+  }
+  if (scale > GRID_VISIBLE_SCALE + 2) gridOpacity = Math.min(0.4, 0.25 + (scale - GRID_VISIBLE_SCALE - 2) * 0.03);
+
+  const workspaceRect = workspace.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const visibleLeft = Math.max(0, Math.floor((workspaceRect.left - containerRect.left) / scale / cellSize));
+  const visibleTop = Math.max(0, Math.floor((workspaceRect.top - containerRect.top) / scale / cellSize));
+  const visibleRight = Math.min(width, Math.ceil((workspaceRect.right - containerRect.left) / scale / cellSize) + 1);
+  const visibleBottom = Math.min(height, Math.ceil((workspaceRect.bottom - containerRect.top) / scale / cellSize) + 1);
+
+  ctx.strokeStyle = `rgba(255, 255, 255, ${gridOpacity})`;
+  ctx.lineWidth = Math.max(0.5, 1 / scale);
+  ctx.beginPath();
+  for (let x = visibleLeft; x <= visibleRight; x++) {
+    ctx.moveTo(x * cellSize, visibleTop * cellSize);
+    ctx.lineTo(x * cellSize, visibleBottom * cellSize);
+  }
+  for (let y = visibleTop; y <= visibleBottom; y++) {
+    ctx.moveTo(visibleLeft * cellSize, y * cellSize);
+    ctx.lineTo(visibleRight * cellSize, y * cellSize);
+  }
+  ctx.stroke();
+}
+
+function generateBigPalette() {
+  const palDiv = document.getElementById('bigPalette');
+  palDiv.innerHTML = '';
+  const palettes = {
+    [t('basic') || 'Basic']: ['#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'],
+    [t('grayscale') || 'Grayscale']: ['#FFFFFF', '#E0E0E0', '#C0C0C0', '#A0A0A0', '#808080', '#606060', '#404040', '#202020', '#000000'],
+    'Material': ['#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'],
+    [t('pastel') || 'Pastel']: ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E6B3FF', '#FFB3E6', '#B3FFFF'],
+    [t('warm') || 'Warm']: ['#FF6B6B', '#FF8E53', '#FE6B8B', '#FF8E53', '#C44569', '#F8B500', '#FF6348', '#FF9F43'],
+    [t('cool') || 'Cool']: ['#4834D4', '#686DE0', '#30336B', '#22A6B3', '#0984E3', '#6C5CE7', '#74B9FF', '#A29BFE']
+  };
+  for (const [name, colors] of Object.entries(palettes)) {
+    const title = document.createElement('div');
+    title.className = 'palette-section-title';
+    title.textContent = name;
+    palDiv.appendChild(title);
+    colors.forEach(c => {
+      const btn = document.createElement('div');
+      btn.className = 'palette-cell';
+      btn.style.backgroundColor = c;
+      btn.onclick = () => setColor(c);
+      palDiv.appendChild(btn);
+    });
+  }
+}
+
+function setTool(t) {
+  currentTool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const btns = document.querySelectorAll('.tool-btn');
+  btns.forEach(b => {
+    if (b.getAttribute('onclick').includes(`'${t}'`)) b.classList.add('active');
+  });
+}
+
+function updateUI(c) {
+  setColor(c);
+}
+
+function showZoomIndicator() {
+  zoomIndicator.textContent = scale.toFixed(1) + 'x';
+  zoomIndicator.classList.add('visible');
+  clearTimeout(zoomIndicatorTimeout);
+  zoomIndicatorTimeout = setTimeout(() => zoomIndicator.classList.remove('visible'), 1000);
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  const delta = -e.deltaY * 0.001;
+  const oldScale = scale;
+  scale = Math.max(0.1, Math.min(scale * (1 + delta), 20));
+  const rect = workspace.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  const containerRect = container.getBoundingClientRect();
+  const beforeX = (mouseX - containerRect.left) / oldScale;
+  const beforeY = (mouseY - containerRect.top) / oldScale;
+  const afterX = (mouseX - panX) / scale;
+  const afterY = (mouseY - panY) / scale;
+  panX += (afterX - beforeX) * scale;
+  panY += (afterY - beforeY) * scale;
+  updateTransform();
+}
+
+function updateTransform() {
+  container.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  if (Math.abs(scale - lastGridScale) > 0.1) {
+    lastGridScale = scale;
+    scheduleGridRedraw();
+  }
+  showZoomIndicator();
+}
+
+let gridRedrawScheduled = false;
+function scheduleGridRedraw() {
+  if (gridRedrawScheduled) return;
+  gridRedrawScheduled = true;
+  requestAnimationFrame(() => {
+    ctx.drawImage(offscreenCanvas, 0, 0);
+    drawGrid();
+    gridRedrawScheduled = false;
+  });
+}
+
+function resetView() {
+  const r = workspace.getBoundingClientRect();
+  scale = Math.min((r.width - 40) / (width * cellSize), (r.height - 200) / (height * cellSize));
+  panX = (r.width - width * cellSize * scale) / 2;
+  panY = (r.height - height * cellSize * scale) / 2 - 50;
+  updateTransform();
+  showToast(t('viewCentered'));
+}
+
+function hexToRgb(hex) {
+  const bigint = parseInt(hex.slice(1), 16);
+  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+}
+
+function hexToHsl(H) {
+  let r = 0, g = 0, b = 0;
+  if (4 == H.length) {
+    r = "0x" + H[1] + H[1], g = "0x" + H[2] + H[2], b = "0x" + H[3] + H[3];
+  } else {
+    if (7 != H.length) return [0, 0, 0];
+    r = "0x" + H[1] + H[2], g = "0x" + H[3] + H[4], b = "0x" + H[5] + H[6];
+  }
+  r /= 255, g /= 255, b /= 255;
+  let c = Math.min(r, g, b), e = Math.max(r, g, b), a = e - c, l = 0, s = 0, u = 0;
+  u = 0 == a ? 0 : e == r ? (g - b) / a % 6 : e == g ? (b - r) / a + 2 : (r - g) / a + 4;
+  u = Math.round(60 * u);
+  u < 0 && (u += 360);
+  l = (e + c) / 2;
+  s = 0 == a ? 0 : a / (1 - Math.abs(2 * l - 1));
+  return [u, +(100 * s).toFixed(1), +(100 * l).toFixed(1)];
+}
+
+function hslToHex(r, g, b) {
+  g /= 100, b /= 100;
+  let c = (1 - Math.abs(2 * b - 1)) * g, e = c * (1 - Math.abs(r / 60 % 2 - 1)), a = b - c / 2, l = 0, s = 0, u = 0;
+  0 <= r && r < 60 ? (l = c, s = e, u = 0) : 60 <= r && r < 120 ? (l = e, s = c, u = 0) : 120 <= r && r < 180 ? (l = 0, s = c, u = e) : 180 <= r && r < 240 ? (l = 0, s = e, u = c) : 240 <= r && r < 300 ? (l = e, s = 0, u = c) : 300 <= r && r < 360 && (l = c, s = 0, u = e);
+  l = Math.round(255 * (l + a)).toString(16);
+  s = Math.round(255 * (s + a)).toString(16);
+  u = Math.round(255 * (u + a)).toString(16);
+  1 == l.length && (l = "0" + l);
+  1 == s.length && (s = "0" + s);
+  1 == u.length && (u = "0" + u);
+  return "#" + l + s + u;
+}
+
+function floodFill(x, y) {
+  if (x < 0 || x >= width || y < 0 || y >= height) return;
+  const targetColor = pixels[y][x];
+  if (targetColor === currentColor) return;
+  const visited = new Uint8Array(width * height);
+  const stack = [[x, y]];
+  let pixelsFilled = 0;
+  const maxPixels = MAX_FLOOD_FILL_PIXELS;
+  while (stack.length && pixelsFilled < maxPixels) {
+    const [cx, cy] = stack.pop();
+    const idx = cy * width + cx;
+    if (cx < 0 || cx >= width || cy < 0 || cy >= height) continue;
+    if (visited[idx] || pixels[cy][cx] !== targetColor) continue;
+    visited[idx] = 1;
+    pixels[cy][cx] = currentColor;
+    dirtyPixels.add(`${cx},${cy}`);
+    pixelsFilled++;
+    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+  }
+  if (pixelsFilled >= maxPixels) showToast(t('floodFillLimit'));
+  scheduleRender();
+  if (isEditingUnicode) saveUnicodeState();
+  else saveState();
+}
+
+function render() {
+  offscreenCtx.fillStyle = '#000000';
+  offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const c = pixels[y][x];
+      if (c) {
+        offscreenCtx.fillStyle = c;
+        offscreenCtx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+  ctx.drawImage(offscreenCanvas, 0, 0);
+  drawGrid();
+}
+
+function toggleMenu() {
+  document.getElementById('menuModal').classList.toggle('open');
+  document.getElementById('wInput').value = width;
+  document.getElementById('hInput').value = height;
+  lucide.createIcons();
+}
+
+function showToast(m) {
+  const t = document.getElementById('toast');
+  t.innerText = m;
+  t.style.opacity = 1;
+  setTimeout(() => t.style.opacity = 0, 2000);
+}
+
+function saveState() {
+  clearTimeout(saveStateTimeout);
+  saveStateTimeout = setTimeout(() => saveStateImmediate(), 500);
+}
+
+function saveStateImmediate() {
+  history = history.slice(0, historyStep + 1);
+  const totalPixels = width * height;
+  let maxHistory;
+  if (totalPixels > 500000) maxHistory = 2;
+  else if (totalPixels > 100000) maxHistory = 3;
+  else if (totalPixels > 50000) maxHistory = 4;
+  else maxHistory = MAX_UNDO_SIZE;
+  history.push(JSON.parse(JSON.stringify(pixels)));
+  if (history.length > maxHistory) history.shift();
+  else historyStep++;
+  if (totalPixels < 100000 && !isEditingUnicode) {
+    try {
+      localStorage.setItem('pap_v10', JSON.stringify({ w: width, h: height, p: pixels }));
+    } catch (e) {}
+  }
+}
+
+function saveUnicodeState() {
+  unicodeHistory = unicodeHistory.slice(0, unicodeHistoryStep + 1);
+  unicodeHistory.push(JSON.parse(JSON.stringify(pixels)));
+  if (unicodeHistory.length > 10) unicodeHistory.shift();
+  else unicodeHistoryStep++;
+}
+
+function undo() {
+  if (isEditingUnicode) {
+    if (unicodeHistoryStep > 0) {
+      unicodeHistoryStep--;
+      pixels = JSON.parse(JSON.stringify(unicodeHistory[unicodeHistoryStep]));
+      render();
+      showToast(t('undoAction') + ' (Unicode)');
+    }
+  } else {
+    if (historyStep > 0) {
+      historyStep--;
+      pixels = JSON.parse(JSON.stringify(history[historyStep]));
+      render();
+      showToast(t('undoAction'));
+    }
+  }
+}
+
+function redo() {
+  if (isEditingUnicode) {
+    if (unicodeHistoryStep < unicodeHistory.length - 1) {
+      unicodeHistoryStep++;
+      pixels = JSON.parse(JSON.stringify(unicodeHistory[unicodeHistoryStep]));
+      render();
+      showToast(t('returned') + ' (Unicode)');
+    }
+  } else {
+    if (historyStep < history.length - 1) {
+      historyStep++;
+      pixels = JSON.parse(JSON.stringify(history[historyStep]));
+      render();
+      showToast(t('returned'));
+    }
+  }
+}
+
+function loadStorage() {
+  try {
+    const d = JSON.parse(localStorage.getItem('pap_v10'));
+    if (d) {
+      width = d.w;
+      height = d.h;
+      pixels = d.p;
+    } else {
+      pixels = Array(height).fill().map(() => Array(width).fill(null));
+      saveStateImmediate();
+    }
+  } catch {
+    pixels = Array(height).fill().map(() => Array(width).fill(null));
+    saveStateImmediate();
+  }
+}
+
+function createNewCanvas() {
+  if (!confirm(t('confirmClear'))) return;
+  width = +document.getElementById('wInput').value || 16;
+  height = +document.getElementById('hInput').value || 16;
+  setupCanvas();
+  pixels = Array(height).fill().map(() => Array(width).fill(null));
+  render();
+  resetView();
+  toggleMenu();
+  if (isEditingUnicode) saveUnicodeState();
+  else saveStateImmediate();
+}
+
+function saveImage() {
+  if (isEditingUnicode) {
+    saveUnicodeCell();
+    return;
+  }
+  const c = document.createElement('canvas');
+  c.width = width;
+  c.height = height;
+  const x = c.getContext('2d');
+  x.fillStyle = '#FFFFFF';
+  x.fillRect(0, 0, c.width, c.height);
+  pixels.forEach((row, y) => {
+    row.forEach((col, i) => {
+      if (col) {
+        x.fillStyle = col;
+        x.fillRect(i, y, 1, 1);
+      }
+    });
+  });
+  const a = document.createElement('a');
+  a.download = 'pixel-art.png';
+  a.href = c.toDataURL();
+  a.click();
+  showToast(t('saved'));
+}
+
+function setupTooltips() {
+  const tooltip = document.getElementById('tooltip');
+  let longPressTimer;
+  let currentElement;
+
+  document.querySelectorAll('[data-tooltip]').forEach(el => {
+    el.addEventListener('touchstart', (e) => {
+      currentElement = el;
+      longPressTimer = setTimeout(() => {
+        const text = el.getAttribute('data-tooltip');
+        tooltip.textContent = text;
+        tooltip.classList.add('visible');
+        const rect = el.getBoundingClientRect();
+        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+      }, 500);
+    }, { passive: true });
+
+    el.addEventListener('touchend', () => {
+      clearTimeout(longPressTimer);
+      tooltip.classList.remove('visible');
+    });
+
+    el.addEventListener('touchmove', () => {
+      clearTimeout(longPressTimer);
+      tooltip.classList.remove('visible');
+    });
+
+    el.addEventListener('mouseenter', (e) => {
+      const text = el.getAttribute('data-tooltip');
+      tooltip.textContent = text;
+      tooltip.classList.add('visible');
+      const rect = el.getBoundingClientRect();
+      tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+      tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+    });
+
+    el.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>
