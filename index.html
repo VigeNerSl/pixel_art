@@ -2528,10 +2528,8 @@ function closeUnicodeModal() {
 function downloadUnicodeGlyph() {
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = unicodeGridSize;
-  exportCanvas.height = unicodeGridSize;
-  const exportCtx = exportCanvas.getContext('2d');
-  exportCtx.fillStyle = '#000000';
-  exportCtx.fillRect(0, 0, unicodeGridSize, unicodeGridSize);
+  const exportCtx = exportCanvas.getContext('2d', { alpha: true }); 
+  exportCtx.clearRect(0, 0, unicodeGridSize, unicodeGridSize);
   
   const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
   
@@ -3381,8 +3379,8 @@ function saveImage() {
   c.width = width;
   c.height = height;
   const x = c.getContext('2d');
-  x.fillStyle = '#FFFFFF';
-  x.fillRect(0, 0, c.width, c.height);
+  const x = c.getContext('2d', { alpha: true });
+  x.clearRect(0, 0, c.width, c.height);
   pixels.forEach((row, y) => {
     row.forEach((col, i) => {
       if (col) {
