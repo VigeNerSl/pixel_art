@@ -3378,7 +3378,6 @@ function saveImage() {
   const c = document.createElement('canvas');
   c.width = width;
   c.height = height;
-  const x = c.getContext('2d');
   const x = c.getContext('2d', { alpha: true });
   x.clearRect(0, 0, c.width, c.height);
   pixels.forEach((row, y) => {
