@@ -2528,7 +2528,9 @@ function closeUnicodeModal() {
 function downloadUnicodeGlyph() {
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = unicodeGridSize;
-  const exportCtx = exportCanvas.getContext('2d', { alpha: true }); 
+  exportCanvas.height = unicodeGridSize; // Эта строка была пропущена в оригинале!
+  const exportCtx = exportCanvas.getContext('2d', { alpha: true });
+  exportCtx.imageSmoothingEnabled = false; // Для чёткости
   exportCtx.clearRect(0, 0, unicodeGridSize, unicodeGridSize);
   
   const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
@@ -2540,8 +2542,8 @@ function downloadUnicodeGlyph() {
         const glyphData = unicodeGlyphs[key];
         const startX = col * unicodeCellSize;
         const startY = row * unicodeCellSize;
-        for (let y = 0; y < glyphData.length; y++) {
-          for (let x = 0; x < glyphData[y].length; x++) {
+        for (let y = 0; y < glyphData.length && y < unicodeCellSize; y++) {
+          for (let x = 0; x < glyphData[y].length && x < unicodeCellSize; x++) {
             const color = glyphData[y][x];
             if (color) {
               exportCtx.fillStyle = color;
@@ -2554,12 +2556,12 @@ function downloadUnicodeGlyph() {
   }
   
   const a = document.createElement('a');
-  a.download = `glyph_${unicodeGridSize === 256 ? 'E0' : 'E1'}.png`;
+  a.download = `glyph_${unicodeGridSize === 256 ? 'E0' : 'E1'}_${unicodeGridSize}x${unicodeGridSize}.png`;
   a.href = exportCanvas.toDataURL();
   a.click();
   showToast('Grid saved');
-}
-
+  }
+  
 function requestUnicodeImport() {
   if (confirm(t('confirmImport'))) {
     document.getElementById('unicodeImportInput').click();
@@ -3379,6 +3381,7 @@ function saveImage() {
   c.width = width;
   c.height = height;
   const x = c.getContext('2d', { alpha: true });
+  x.imageSmoothingEnabled = false; // Добавьте это для чёткости пикселей
   x.clearRect(0, 0, c.width, c.height);
   pixels.forEach((row, y) => {
     row.forEach((col, i) => {
@@ -3394,7 +3397,7 @@ function saveImage() {
   a.click();
   showToast(t('saved'));
 }
-
+  
 function setupTooltips() {
   const tooltip = document.getElementById('tooltip');
   let longPressTimer;
