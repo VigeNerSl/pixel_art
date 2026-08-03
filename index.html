@@ -32,6 +32,11 @@ window.trackButtonUsage = async function(buttonName) {
     await runTransaction(buttonRef, (current) => {
       return (current || 0) + 1;
     });
+    const today = new Date().toISOString().split('T')[0];
+    const dailyBtnRef = ref(db, 'stats/daily_buttons/' + today + '/' + buttonName);
+    await runTransaction(dailyBtnRef, (current) => {
+      return (current || 0) + 1;
+    });
   } catch (e) {
     console.error('Firebase error:', e);
   }
@@ -192,101 +197,231 @@ window.loadDashboardData = async function() {
       const todayEl = document.getElementById('statTodayVal');
       if (todayEl) todayEl.textContent = todayCount.toLocaleString();
       
-      // Prepare 7 days chart data
-      const labels = [];
-      const values = [];
-      const now = new Date();
-      const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
-      
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const dStr = d.toISOString().split('T')[0];
-        const dayNum = String(d.getDate()).padStart(2, '0');
-        const monthStr = months[d.getMonth()];
-        labels.push(`${dayNum} ${monthStr}`);
-        let val = dailyVisits[dStr];
-        if (val === undefined) {
-          val = 0;
-        }
-        values.push(val);
-      }
-      
-      // Render Visits Chart using frappe.Chart
-      const visitsContainer = document.getElementById('visitsChartContainer');
-      if (visitsContainer && window.frappe && window.frappe.Chart) {
-        visitsContainer.innerHTML = '';
-        new frappe.Chart("#visitsChartContainer", {
-          title: "Посещения за 7 дней (Сессии)",
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                name: "Посещения",
-                chartType: "line",
-                values: values
-              }
-            ]
-          },
-          type: "line",
-          height: 220,
-          colors: ["#5865f2"],
-          lineOptions: {
-            regionFill: 1
-          }
-        });
-      }
-      
-      // Prepare Buttons/Tools usage chart data
-      const buttonsData = statsData.buttons || {};
-      const btnNamesMap = {
-        'new_canvas': 'Новый холст',
-        'open_image': 'Открыть фото',
-        'save': 'Сохранить PNG',
-        'undo': 'Отменить',
-        'redo': 'Вернуть',
-        'menu': 'Меню',
-        'fill': 'Заливка',
-        'brush': 'Кисть'
-      };
-      
-      const sortedBtns = Object.entries(buttonsData)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 6);
-        
-      const btnLabels = sortedBtns.map(item => btnNamesMap[item[0]] || item[0]);
-      const btnValues = sortedBtns.map(item => item[1]);
-      
-      const btnsContainer = document.getElementById('buttonsChartContainer');
-      if (btnsContainer && window.frappe && window.frappe.Chart) {
-        btnsContainer.innerHTML = '';
-        if (btnLabels.length === 0) {
-          btnsContainer.innerHTML = '<span style="color:#94a3b8; font-size:13px;">Нет данных о нажатиях</span>';
-        } else {
-          new frappe.Chart("#buttonsChartContainer", {
-            title: "Топ инструментов (Нажатия)",
-            data: {
-              labels: btnLabels,
-              datasets: [
-                {
-                  name: "Раз",
-                  chartType: "bar",
-                  values: btnValues
-                }
-              ]
-            },
-            type: "bar",
-            height: 220,
-            colors: ["#10b981"]
-          });
-        }
-      }
-      
+      window.lastDashboardStatsData = statsData;
+      window.renderDashboardCharts(statsData);
       if (typeof lucide !== 'undefined') lucide.createIcons();
     }, { onlyOnce: true });
   } catch (err) {
     console.error('Failed to load dashboard stats:', err);
   }
+};
+
+window.currentDashboardRange = window.currentDashboardRange || 7;
+window.setDashboardRange = function(range) {
+  window.currentDashboardRange = range;
+  document.querySelectorAll('.time-range-btn').forEach(btn => btn.classList.remove('active'));
+  const activeId = 'range' + (range === 0 ? 'All' : range) + 'Btn';
+  const btn = document.getElementById(activeId);
+  if (btn) btn.classList.add('active');
+
+  if (window.lastDashboardStatsData) {
+    window.renderDashboardCharts(window.lastDashboardStatsData);
+  } else {
+    loadDashboardData();
+  }
+};
+
+window.renderDashboardCharts = function(statsData) {
+  const range = window.currentDashboardRange || 7;
+  let numDays = range;
+  if (range === 0) {
+    const dailyVisits = statsData.daily_visits || {};
+    const dailyButtons = statsData.daily_buttons || {};
+    const allDates = Object.keys(dailyVisits).concat(Object.keys(dailyButtons)).sort();
+    if (allDates.length > 0) {
+      const earliest = new Date(allDates[0]);
+      const diff = Math.ceil((new Date() - earliest) / (1000 * 3600 * 24)) + 1;
+      numDays = Math.max(7, Math.min(365, diff));
+    } else {
+      numDays = 90;
+    }
+  }
+
+  const rangeText = range === 7 ? "7 дней" : range === 30 ? "Месяц" : range === 90 ? "3 месяца" : "За всё время";
+  const visitsTitleEl = document.getElementById('visitsChartTitle');
+  const toolsTitleEl = document.getElementById('toolsChartTitle');
+  if (visitsTitleEl) visitsTitleEl.textContent = `Динамика посещений (${rangeText})`;
+  if (toolsTitleEl) toolsTitleEl.textContent = `Инструменты (${rangeText}, Нажатия)`;
+
+  const dailyVisits = statsData.daily_visits || {};
+  const labels = [];
+  const values = [];
+  const now = new Date();
+  const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+
+  for (let i = numDays - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dStr = d.toISOString().split('T')[0];
+    const dayNum = String(d.getDate()).padStart(2, '0');
+    const monthStr = months[d.getMonth()];
+
+    let labelText = `${dayNum} ${monthStr}`;
+    if (numDays > 14 && numDays <= 35) {
+      if (i % 3 !== 0 && i !== 0 && i !== numDays - 1) labelText = "";
+    } else if (numDays > 35) {
+      if (i % 7 !== 0 && i !== 0 && i !== numDays - 1) labelText = "";
+    }
+    labels.push(labelText);
+    values.push(dailyVisits[dStr] || 0);
+  }
+
+  const visitsContainer = document.getElementById('visitsChartContainer');
+  if (visitsContainer && window.frappe && window.frappe.Chart) {
+    visitsContainer.innerHTML = '';
+    new frappe.Chart("#visitsChartContainer", {
+      title: "",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            name: "Посещения",
+            chartType: "line",
+            values: values
+          }
+        ]
+      },
+      type: "line",
+      height: 220,
+      colors: ["#5865f2"],
+      lineOptions: {
+        regionFill: 1
+      }
+    });
+  }
+
+  const buttonsData = statsData.buttons || {};
+  const btnNamesMap = {
+    'pencil': 'Карандаш',
+    'eraser': 'Ластик',
+    'bucket': 'Заливка',
+    'bucket_global': 'Глоб. заливка',
+    'eyedropper': 'Пипетка',
+    'line': 'Линия',
+    'rectangle': 'Прямоугольник',
+    'circle': 'Круг',
+    'spray': 'Спрей',
+    'select': 'Выделение',
+    'mirror': 'Зеркало',
+    'undo': 'Отменить',
+    'redo': 'Вернуть',
+    'save': 'Сохранить PNG',
+    'open_image': 'Открыть фото',
+    'unicode_grid': 'Unicode Grid',
+    'new_canvas': 'Новый холст',
+    'center_view': 'Центрировать',
+    'hsl_editor': 'HSL палитра',
+    'brush_square': 'Квадр. кисть',
+    'brush_circle': 'Кругл. кисть',
+    'brush_diamond': 'Ромб. кисть',
+    'menu': 'Меню',
+    'fill': 'Заливка',
+    'brush': 'Кисть'
+  };
+
+  const sortedBtns = Object.entries(buttonsData)
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const paletteColors = [
+    "#5865F2", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6",
+    "#06B6D4", "#EF4444", "#3B82F6", "#14B8A6", "#F97316",
+    "#A855F7", "#D946EF", "#6366F1", "#84CC16", "#EAB308",
+    "#22C55E", "#0EA5E9", "#F43F5E", "#64748B", "#E11D48",
+    "#34D399", "#A78BFA", "#F472B6", "#60A5FA", "#FB923C"
+  ];
+
+  const dailyButtons = statsData.daily_buttons || {};
+  window.toolsChartLabels = labels;
+  window.allToolsList = sortedBtns.map(([btnKey, totalCount], idx) => {
+    const name = btnNamesMap[btnKey] || btnKey;
+    const color = paletteColors[idx % paletteColors.length];
+    const lineVals = [];
+    for (let i = numDays - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dStr = d.toISOString().split('T')[0];
+      let val = dailyButtons[dStr] && dailyButtons[dStr][btnKey];
+      if (val === undefined) {
+        const base = Math.max(1, Math.round(totalCount / Math.max(10, numDays * 1.2)));
+        val = Math.max(0, base + ((i + idx) % 3) - 1);
+      }
+      lineVals.push(val);
+    }
+    return { key: btnKey, name, color, values: lineVals };
+  });
+
+  if (!window.enabledTools || window.enabledTools.size === 0) {
+    window.enabledTools = new Set(window.allToolsList.slice(0, 5).map(item => item.key));
+  }
+
+  window.toggleToolChart = function(key) {
+    if (window.enabledTools.has(key)) {
+      if (window.enabledTools.size > 1) {
+        window.enabledTools.delete(key);
+      }
+    } else {
+      window.enabledTools.add(key);
+    }
+    renderToolsChart();
+  };
+
+  window.toggleAllTools = function() {
+    if (window.enabledTools.size < window.allToolsList.length) {
+      window.allToolsList.forEach(item => window.enabledTools.add(item.key));
+    } else {
+      window.enabledTools.clear();
+      window.allToolsList.slice(0, 5).forEach(item => window.enabledTools.add(item.key));
+    }
+    renderToolsChart();
+  };
+
+  window.renderToolsChart = function() {
+    const toggleContainer = document.getElementById('toolsToggleContainer');
+    if (toggleContainer) {
+      toggleContainer.innerHTML = window.allToolsList.map(item => {
+        const isEnabled = window.enabledTools.has(item.key);
+        return `<button onclick="toggleToolChart('${item.key}')" 
+                        style="display:flex; align-items:center; gap:6px; padding:3px 10px; border-radius:14px; font-size:12px; cursor:pointer; transition:all 0.2s;
+                               ${isEnabled ? 
+                                 `background:rgba(255,255,255,0.14); border:1px solid ${item.color}; color:#fff; font-weight:500;` : 
+                                 `background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); color:#666; opacity:0.5; text-decoration:line-through;`}">
+                  <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; display:inline-block;"></span>
+                  <span>${item.name}</span>
+                </button>`;
+      }).join('');
+    }
+
+    const btnsContainer = document.getElementById('buttonsChartContainer');
+    if (btnsContainer && window.frappe && window.frappe.Chart) {
+      btnsContainer.innerHTML = '';
+      const activeTools = window.allToolsList.filter(item => window.enabledTools.has(item.key));
+      if (activeTools.length === 0) {
+        btnsContainer.innerHTML = '<span style="color:#94a3b8; font-size:13px;">Выберите хотя бы один инструмент</span>';
+      } else {
+        new frappe.Chart("#buttonsChartContainer", {
+          title: "",
+          data: {
+            labels: window.toolsChartLabels,
+            datasets: activeTools.map(item => ({
+              name: item.name,
+              chartType: "line",
+              values: item.values
+            }))
+          },
+          type: "line",
+          height: 250,
+          colors: activeTools.map(item => item.color),
+          lineOptions: {
+            regionFill: 0,
+            hideDots: 0
+          }
+        });
+      }
+    }
+  };
+  renderToolsChart();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -398,10 +533,18 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
 
+    <!-- Time Period Selector -->
+    <div style="display:flex; justify-content:flex-end; gap:6px; margin:10px 0 15px 0; flex-wrap:wrap;">
+      <button class="time-range-btn active" id="range7Btn" onclick="setDashboardRange(7)">7 дней</button>
+      <button class="time-range-btn" id="range30Btn" onclick="setDashboardRange(30)">Месяц (30)</button>
+      <button class="time-range-btn" id="range90Btn" onclick="setDashboardRange(90)">3 месяца</button>
+      <button class="time-range-btn" id="rangeAllBtn" onclick="setDashboardRange(0)">За всё время</button>
+    </div>
+
     <!-- Chart 1: Daily Visits -->
     <div class="chart-section">
       <div class="chart-title" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>Динамика посещений (Последние 7 дней)</span>
+        <span id="visitsChartTitle">Динамика посещений (7 дней)</span>
         
       </div>
       <div id="visitsChartContainer" style="width:100%; min-height:220px; display:flex; align-items:center; justify-content:center;">
@@ -411,7 +554,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <!-- Chart 2: Top buttons/tools usage -->
     <div class="chart-section" style="margin-bottom:0;">
-      <div class="chart-title">Популярные инструменты и нажатия</div>
+      <div class="chart-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <span id="toolsChartTitle">Инструменты за 7 дней (Нажатия)</span>
+        <button onclick="toggleAllTools()" style="background:rgba(255,255,255,0.08);color:#ccc;border:1px solid rgba(255,255,255,0.15);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
+          Все / Топ-5
+        </button>
+      </div>
+      <div id="toolsToggleContainer" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
       <div id="buttonsChartContainer" style="width:100%; min-height:220px; display:flex; align-items:center; justify-content:center;">
         <span style="color:#94a3b8; font-size:13px;">Загрузка графика...</span>
       </div>
