@@ -254,7 +254,7 @@ button:active {
   z-index: 1;
 }
 
-canvas.bg-dark, .canvas-container.bg-dark canvas {
+canvas.bg-dark, .canvas-container.bg-dark canvas, .unicode-grid-container.bg-dark {
   background-color: #1a1a1a;
   background-image: 
     linear-gradient(45deg, #222 25%, transparent 25%, transparent 75%, #222 75%, #222),
@@ -263,7 +263,7 @@ canvas.bg-dark, .canvas-container.bg-dark canvas {
   background-size: 20px 20px;
 }
 
-canvas.bg-light, .canvas-container.bg-light canvas {
+canvas.bg-light, .canvas-container.bg-light canvas, .unicode-grid-container.bg-light {
   background-color: #ffffff;
   background-image: 
     linear-gradient(45deg, #e8e8e8 25%, transparent 25%, transparent 75%, #e8e8e8 75%, #e8e8e8),
@@ -272,7 +272,7 @@ canvas.bg-light, .canvas-container.bg-light canvas {
   background-size: 20px 20px;
 }
 
-canvas.bg-gray, .canvas-container.bg-gray canvas {
+canvas.bg-gray, .canvas-container.bg-gray canvas, .unicode-grid-container.bg-gray {
   background-color: #808080;
   background-image: 
     linear-gradient(45deg, #9a9a9a 25%, transparent 25%, transparent 75%, #9a9a9a 75%, #9a9a9a),
@@ -1035,7 +1035,12 @@ input[type=range]::-webkit-slider-thumb {
   width: 100%;
   flex: 1;
   min-height: 300px;
-  background: #000;
+  background-color: #1a1a1a;
+  background-image: 
+    linear-gradient(45deg, #262626 25%, transparent 25%, transparent 75%, #262626 75%, #262626),
+    linear-gradient(45deg, #262626 25%, transparent 25%, transparent 75%, #262626 75%, #262626);
+  background-position: 0 0, 10px 10px;
+  background-size: 20px 20px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   overflow: hidden;

@@ -379,8 +379,16 @@ window.setCanvasBackground = function (theme, save = true) {
     target.classList.remove('bg-dark', 'bg-light', 'bg-gray');
     target.classList.add('bg-' + theme);
   }
+  const unicodeTarget = document.getElementById('unicodeGridContainer');
+  if (unicodeTarget) {
+    unicodeTarget.classList.remove('bg-dark', 'bg-light', 'bg-gray');
+    unicodeTarget.classList.add('bg-' + theme);
+  }
 
-  document.querySelectorAll('.bg-select-btn').forEach(btn => btn.classList.remove('active'));
+  ['bgDarkBtn', 'bgLightBtn', 'bgGrayBtn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.remove('active');
+  });
   const activeBtn = document.getElementById('bg' + theme.charAt(0).toUpperCase() + theme.slice(1) + 'Btn');
   if (activeBtn) activeBtn.classList.add('active');
 
@@ -1284,12 +1292,7 @@ function renderUnicodeGrid() {
 
   const imgData = unicodeCtx.createImageData(unicodeGridSize, unicodeGridSize);
   const data = imgData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = 0;
-    data[i + 1] = 0;
-    data[i + 2] = 0;
-    data[i + 3] = 255;
-  }
+  data.fill(0);
 
   const prefix = unicodeGridSize === 256 ? 'e0' : 'e1';
 
@@ -1307,13 +1310,11 @@ function renderUnicodeGrid() {
               for (let x = 0; x < glyphData[y].length && x < unicodeCellSize; x++) {
                 const color = glyphData[y][x];
                 if (color) {
-                  const r = parseInt(color.slice(1, 3), 16);
-                  const g = parseInt(color.slice(3, 5), 16);
-                  const b = parseInt(color.slice(5, 7), 16);
+                  const rgb = getCachedRgb(color);
                   const idx = ((startY + y) * unicodeGridSize + (startX + x)) * 4;
-                  data[idx] = r;
-                  data[idx + 1] = g;
-                  data[idx + 2] = b;
+                  data[idx] = rgb.r;
+                  data[idx + 1] = rgb.g;
+                  data[idx + 2] = rgb.b;
                   data[idx + 3] = 255;
                 }
               }
@@ -1327,7 +1328,8 @@ function renderUnicodeGrid() {
   unicodeCtx.putImageData(imgData, 0, 0);
 
   if (gridEnabled) {
-    unicodeCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    const isLightBg = (typeof currentCanvasBg !== 'undefined' && currentCanvasBg === 'light');
+    unicodeCtx.strokeStyle = isLightBg ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.4)';
     unicodeCtx.lineWidth = 2;
     unicodeCtx.beginPath();
     for (let i = 0; i <= unicodeGridCells; i++) {
@@ -1340,7 +1342,7 @@ function renderUnicodeGrid() {
     unicodeCtx.stroke();
 
     if (unicodeScale >= 0.8) {
-      unicodeCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      unicodeCtx.strokeStyle = isLightBg ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.1)';
       unicodeCtx.lineWidth = 0.5;
       unicodeCtx.beginPath();
       for (let i = 1; i < unicodeGridSize; i++) {
@@ -1407,6 +1409,11 @@ function saveUnicodeGlyphs() {
 }
 
 function openUnicodeModal() {
+  const unicodeTarget = document.getElementById('unicodeGridContainer');
+  if (unicodeTarget && typeof currentCanvasBg !== 'undefined') {
+    unicodeTarget.classList.remove('bg-dark', 'bg-light', 'bg-gray');
+    unicodeTarget.classList.add('bg-' + currentCanvasBg);
+  }
   document.getElementById('unicodeModal').classList.add('open');
   document.getElementById('unicodeHeaderTitle').textContent = `Unicode Grid (${unicodeGridCells}x${unicodeGridCells})`;
   setTimeout(() => {
@@ -1540,6 +1547,7 @@ function processImageToUnicodeGrid(img) {
           const r = data[idx];
           const g = data[idx + 1];
           const b = data[idx + 2];
+          const a = data[idx + 3];
           if (a > 0) {
             rowPixels.push(rgbToHex(r, g, b));
           } else {

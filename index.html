@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.iife.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, runTransaction, onValue, set, onDisconnect, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -178,111 +178,112 @@ window.loadDashboardData = async function() {
   if (onlineEl) onlineEl.textContent = window.currentOnlineCount || 1;
   
   try {
-    const statsSnap = await get(ref(db, 'stats'));
-    const statsData = statsSnap.val() || {};
-    
-    // Total visits
-    const totalVisits = statsData.total_visits || 1;
-    const totalEl = document.getElementById('statTotalVal');
-    if (totalEl) totalEl.textContent = totalVisits.toLocaleString();
-    
-    // Daily visits
-    const dailyVisits = statsData.daily_visits || {};
-    const todayCount = dailyVisits[today] || 1;
-    const todayEl = document.getElementById('statTodayVal');
-    if (todayEl) todayEl.textContent = todayCount.toLocaleString();
-    
-    // Prepare 7 days chart data
-    const labels = [];
-    const values = [];
-    const now = new Date();
-    const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
-    
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const dStr = d.toISOString().split('T')[0];
-      const dayNum = String(d.getDate()).padStart(2, '0');
-      const monthStr = months[d.getMonth()];
-      labels.push(`${dayNum} ${monthStr}`);
-      let val = dailyVisits[dStr];
-      if (val === undefined) {
-        val = 0;
-      }
-      values.push(val);
-    }
-    
-    // Render Visits Chart using frappe.Chart
-    const visitsContainer = document.getElementById('visitsChartContainer');
-    if (visitsContainer && window.frappe && window.frappe.Chart) {
-      visitsContainer.innerHTML = '';
-      new frappe.Chart("#visitsChartContainer", {
-        title: "Посещения за 7 дней (Сессии)",
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              name: "Посещения",
-              chartType: "line",
-              values: values
-            }
-          ]
-        },
-        type: "line",
-        height: 220,
-        colors: ["#5865f2"],
-        lineOptions: {
-          regionFill: 1
-        }
-      });
-    }
-    
-    // Prepare Buttons/Tools usage chart data
-    const buttonsData = statsData.buttons || {};
-    const btnNamesMap = {
-      'new_canvas': 'Новый холст',
-      'open_image': 'Открыть фото',
-      'save': 'Сохранить PNG',
-      'undo': 'Отменить',
-      'redo': 'Вернуть',
-      'menu': 'Меню',
-      'fill': 'Заливка',
-      'brush': 'Кисть'
-    };
-    
-    const sortedBtns = Object.entries(buttonsData)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
+    onValue(ref(db, 'stats'), (statsSnap) => {
+      const statsData = statsSnap.val() || {};
       
-    const btnLabels = sortedBtns.map(item => btnNamesMap[item[0]] || item[0]);
-    const btnValues = sortedBtns.map(item => item[1]);
-    
-    const btnsContainer = document.getElementById('buttonsChartContainer');
-    if (btnsContainer && window.frappe && window.frappe.Chart) {
-      btnsContainer.innerHTML = '';
-      if (btnLabels.length === 0) {
-        btnsContainer.innerHTML = '<span style="color:#94a3b8; font-size:13px;">Нет данных о нажатиях</span>';
-      } else {
-        new frappe.Chart("#buttonsChartContainer", {
-          title: "Топ инструментов (Нажатия)",
+      // Total visits
+      const totalVisits = statsData.total_visits || 1;
+      const totalEl = document.getElementById('statTotalVal');
+      if (totalEl) totalEl.textContent = totalVisits.toLocaleString();
+      
+      // Daily visits
+      const dailyVisits = statsData.daily_visits || {};
+      const todayCount = dailyVisits[today] || 1;
+      const todayEl = document.getElementById('statTodayVal');
+      if (todayEl) todayEl.textContent = todayCount.toLocaleString();
+      
+      // Prepare 7 days chart data
+      const labels = [];
+      const values = [];
+      const now = new Date();
+      const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+      
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dStr = d.toISOString().split('T')[0];
+        const dayNum = String(d.getDate()).padStart(2, '0');
+        const monthStr = months[d.getMonth()];
+        labels.push(`${dayNum} ${monthStr}`);
+        let val = dailyVisits[dStr];
+        if (val === undefined) {
+          val = 0;
+        }
+        values.push(val);
+      }
+      
+      // Render Visits Chart using frappe.Chart
+      const visitsContainer = document.getElementById('visitsChartContainer');
+      if (visitsContainer && window.frappe && window.frappe.Chart) {
+        visitsContainer.innerHTML = '';
+        new frappe.Chart("#visitsChartContainer", {
+          title: "Посещения за 7 дней (Сессии)",
           data: {
-            labels: btnLabels,
+            labels: labels,
             datasets: [
               {
-                name: "Раз",
-                chartType: "bar",
-                values: btnValues
+                name: "Посещения",
+                chartType: "line",
+                values: values
               }
             ]
           },
-          type: "bar",
+          type: "line",
           height: 220,
-          colors: ["#10b981"]
+          colors: ["#5865f2"],
+          lineOptions: {
+            regionFill: 1
+          }
         });
       }
-    }
-    
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+      
+      // Prepare Buttons/Tools usage chart data
+      const buttonsData = statsData.buttons || {};
+      const btnNamesMap = {
+        'new_canvas': 'Новый холст',
+        'open_image': 'Открыть фото',
+        'save': 'Сохранить PNG',
+        'undo': 'Отменить',
+        'redo': 'Вернуть',
+        'menu': 'Меню',
+        'fill': 'Заливка',
+        'brush': 'Кисть'
+      };
+      
+      const sortedBtns = Object.entries(buttonsData)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6);
+        
+      const btnLabels = sortedBtns.map(item => btnNamesMap[item[0]] || item[0]);
+      const btnValues = sortedBtns.map(item => item[1]);
+      
+      const btnsContainer = document.getElementById('buttonsChartContainer');
+      if (btnsContainer && window.frappe && window.frappe.Chart) {
+        btnsContainer.innerHTML = '';
+        if (btnLabels.length === 0) {
+          btnsContainer.innerHTML = '<span style="color:#94a3b8; font-size:13px;">Нет данных о нажатиях</span>';
+        } else {
+          new frappe.Chart("#buttonsChartContainer", {
+            title: "Топ инструментов (Нажатия)",
+            data: {
+              labels: btnLabels,
+              datasets: [
+                {
+                  name: "Раз",
+                  chartType: "bar",
+                  values: btnValues
+                }
+              ]
+            },
+            type: "bar",
+            height: 220,
+            colors: ["#10b981"]
+          });
+        }
+      }
+      
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }, { onlyOnce: true });
   } catch (err) {
     console.error('Failed to load dashboard stats:', err);
   }
@@ -294,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupOnlinePresence();
 });
 </script>
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=31">
 </head>
 <body>
 <div class="bg-animation">
@@ -775,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div id="desktopSettingsPlaceholder" class="desktop-only" style="margin-top:15px; border-top:1px solid rgba(255,255,255,0.08); padding-top:15px;"></div>
   </div>
 </div>
-<script src="app.js?v=30"></script>
+<script src="app.js?v=35"></script>
 
 </body>
 </html>
